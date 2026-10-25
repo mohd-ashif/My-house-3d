@@ -127,6 +127,13 @@ openings = [
   op(F1, "window", 4.40, 9.72, 6.40, 9.72, sill=0.45),            # bedroom 3 bay window, front
 ]
 
+# teak frames on the windows, as in the façade render; the double-height glazing and the stair window stay black metal
+for o in openings:
+    if o["type"] == "window" and not (o["floor"] == F1 and o["x1"] in (8.52, 7.39)):
+        o["frame"] = "teak"
+    if o["type"] == "sliding" and o["floor"] == F1:
+        o["frame"] = "teak"
+
 walls = [
   # courtyard garden walls (back + right) and the 90 cm show wall
   wall(F0, 9.16, 0.12, 12.23, 0.12, y=0, height=2.6, material="stone", thickness=T),
@@ -141,10 +148,10 @@ walls = [
   wall(F1, 7.25, 5.28, 12.11, 5.28, y=FF, height=1.0, material="glass"),     # cutout edge
   # balcony: 0.24 upstand (plan line 8.58-8.82) with a glass railing on top, front and right side
   wall(F1, 12.23, 8.70, 16.13, 8.70, y=CEIL0, height=0.45, thickness=T),
-  wall(F1, 16.01, 7.38, 16.01, 8.58, y=CEIL0, height=0.45, thickness=T),
-  wall(F1, 12.35, 8.70, 16.01, 8.70, y=FF + 0.3, height=0.75, material="glass"),
-  wall(F1, 16.01, 7.38, 16.01, 8.58, y=FF + 0.3, height=0.75, material="glass"),
-  wall(F1, 12.23, 8.34, 12.23, 8.70, y=CEIL0, height=1.15, thickness=T),
+  wall(F1, 12.35, 8.70, 15.89, 8.70, y=FF + 0.3, height=0.75, material="glass"),
+  # the render frames the balcony as a white box: full-height side walls under the roof slab
+  wall(F1, 16.01, 7.38, 16.01, 8.82, y=CEIL0, height=H, thickness=T),
+  wall(F1, 12.23, 8.34, 12.23, 8.82, y=CEIL0, height=H, thickness=T),
   # open terrace parapets
   wall(F1, 0.11, 0.60, 0.11, 7.92, y=CEIL0, height=1.15, thickness=T),
   wall(F1, 0.11, 0.60, 2.39, 0.60, y=CEIL0, height=1.15, thickness=T),
@@ -167,8 +174,8 @@ boxes = [
   box("sitout-side-r", 12.17, 9.15, 0.12, 1.62, 0, GF, "granite", walkable=True),
   box("step-2", 9.44, 10.35, 3.6, 0.30, 0, 0.30, "granite", walkable=True),
   box("step-1", 9.44, 10.65, 3.6, 0.30, 0, 0.15, "granite", walkable=True),
-  box("path", 9.44, 14.40, 1.60, 7.20, 0, 0.02, "paving", walkable=True),
-  box("driveway", 2.60, 13.30, 4.00, 9.40, 0, 0.02, "paving", walkable=True),
+  # forecourt: large pavers with grass joints across the whole front (render)
+  box("forecourt", 8.50, 14.40, 18.0, 7.20, 0, 0.02, "paverGrass", walkable=True),
   # back steps from the work area (plan: treads at z -0.27 / -0.02 / 0.23 / 0.48)
   box("back-step-2", 1.82, 0.355, 0.9, 0.25, 0, 0.30, "granite", walkable=True),
   box("back-step-1", 1.82, 0.105, 0.9, 0.25, 0, 0.15, "granite", walkable=True),
@@ -179,32 +186,101 @@ boxes = [
   box("court-step", 10.58, 2.85, 1.10, 0.50, GF, 0.06, "paving", walkable=True),
   box("court-bed-l", 9.47, 2.0, 0.35, 2.2, GF, 0.12, "concrete", collide=False),
   box("court-bed-r", 11.73, 2.05, 0.35, 2.1, GF, 0.12, "concrete", collide=False),
-  # sit-out columns: the stone-clad feature column on the left runs up to the roof
-  box("stone-column", 6.65, 10.08, 0.45, 0.45, 0, 7.0, "stone"),
-  box("sitout-col-r", 12.23, 10.08, 0.30, 0.30, 0, CEIL0, "paint"),
+  # sit-out: thick white portal frame (render) - two columns and a deep beam
+  box("sitout-col-l", 6.65, 10.06, 0.45, 0.45, 0, CEIL0, "paint"),
+  box("sitout-col-r", 12.23, 10.06, 0.45, 0.45, 0, CEIL0, "paint"),
   box("sitout-roof", 9.80, 9.33, 5.10, 1.74, CEIL0, 0.15, "paint"),
-  box("sitout-fascia", 9.80, 10.20, 5.10, 0.10, CEIL0 - 0.15, 0.40, "walnut", collide=False),
-  box("lamp-l", 8.40, 8.52, 0.15, 0.06, 2.6, 0.3, "lamp", collide=False),
-  box("lamp-r", 12.05, 8.52, 0.15, 0.06, 2.6, 0.3, "lamp", collide=False),
+  box("sitout-beam", 9.44, 10.06, 6.03, 0.45, CEIL0 - 0.30, 0.60, "paint", collide=False),
+  box("sitout-strip", 6.96, 8.50, 0.12, 0.06, GF, 2.9, "blackMetal", collide=False),  # black fin beside the portal
+  box("lamp-l", 7.80, 8.50, 0.12, 0.08, 2.55, 0.28, "lamp", collide=False),   # wall sconces either side
+  box("lamp-m", 9.98, 8.50, 0.12, 0.08, 2.55, 0.28, "lamp", collide=False),   # of the living window
+  box("lamp-r", 11.95, 8.50, 0.12, 0.08, 2.55, 0.28, "lamp", collide=False),  # and the main door
+  *[box(f"sitout-dl-{i}", 7.9 + i * 1.5, 9.25, 0.14, 0.14, CEIL0 - 0.02, 0.02, "lamp", collide=False) for i in range(4)],
+  # LED strips under the step nosings
+  box("led-sitout", 9.44, 10.21, 3.6, 0.02, GF - 0.05, 0.03, "lamp", collide=False),
+  box("led-step-2", 9.44, 10.51, 3.6, 0.02, 0.25, 0.03, "lamp", collide=False),
+  box("led-step-1", 9.44, 10.81, 3.6, 0.02, 0.10, 0.03, "lamp", collide=False),
   # wash counter in the passage beside the work area
   box("wash-counter", 2.71, 3.96, 0.40, 1.20, GF, 0.82, "white"),
   box("wash-top", 2.71, 3.96, 0.42, 1.22, GF + 0.82, 0.04, "granite", collide=False),
   box("wash-mirror", 2.53, 3.96, 0.02, 0.9, GF + 1.15, 0.75, "mirror", collide=False),
   # living partition slats above the half wall
   *[box(f"slat-{i}", 6.90 + i * 0.16, 4.68, 0.05, 0.08, GF + 1.0, CEIL0 - GF - 1.0, "walnut", collide=False) for i in range(18)],
-  # bedroom 3 bay window frame projecting from the front wall
-  box("bay-sill", 5.40, 10.02, 2.36, 0.36, FF + 0.37, 0.08, "paint"),
-  box("bay-head", 5.40, 10.02, 2.36, 0.36, FF + 2.1, 0.15, "paint", collide=False),
-  box("bay-side-l", 4.31, 10.02, 0.18, 0.36, FF + 0.37, 1.88, "paint"),
-  box("bay-side-r", 6.49, 10.02, 0.18, 0.36, FF + 0.37, 1.88, "paint"),
-  # roof: pergola over the open part of the courtyard, solar panels, water tank
+  # roof: pergola over the open part of the courtyard, solar panels (moved off the master roof,
+  # which now carries the overhanging eave), water tank
   *[box(f"pergola-{i}", 9.35 + i * 0.37, 0.81, 0.10, 1.38, FF + H - 0.15, 0.22, "walnut", collide=False) for i in range(8)],
-  box("solar-1", 14.10, 4.30, 3.2, 1.7, 6.95, 0.06, "solar"),
-  box("solar-2", 14.10, 6.20, 3.2, 1.7, 6.95, 0.06, "solar"),
-  box("solar-stand-1", 14.10, 4.30, 3.0, 1.4, 6.75, 0.2, "blackMetal"),
-  box("solar-stand-2", 14.10, 6.20, 3.0, 1.4, 6.75, 0.2, "blackMetal"),
+  box("solar-1", 10.70, 2.45, 2.9, 1.5, 6.95, 0.06, "solar"),
+  box("solar-2", 10.70, 4.25, 2.9, 1.5, 6.95, 0.06, "solar"),
+  box("solar-stand-1", 10.70, 2.45, 2.7, 1.2, 6.75, 0.2, "blackMetal"),
+  box("solar-stand-2", 10.70, 4.25, 2.7, 1.2, 6.75, 0.2, "blackMetal"),
   box("water-tank", 5.50, 0.00, 1.1, 1.1, 6.75, 1.1, "white"),
 ]
+
+# ---------- front + right façade (render "Modern Tropical Villa at Golden Hour") ----------
+# Outer wall faces: kitchen front z 8.04, dining/living front 8.46, GF bedroom front 7.38,
+# FF bedroom 3 front 9.84, cutout front 8.46, balcony edge 8.82, right side x 16.13.
+# Nothing here moves a room; it is cladding, frames, eaves, planters and lights.
+ROOF = FF + H          # 6.75 top of the FF roof slab
+EAVE = ROOF + 0.55     # raised parapet line carrying the thin overhanging roof slabs
+KW_SILL, KW_HEAD = GF + 0.9, GF + 2.1
+facade = [
+  # 1. kitchen / work-area block: large grey stone tiles around a teak window with a deep white surround
+  box("k-clad-l", 0.395, 8.06, 0.81, 0.04, 0, 4.6, "stoneTile", collide=False),
+  box("k-clad-r", 2.585, 8.06, 0.57, 0.04, 0, 4.6, "stoneTile", collide=False),
+  box("k-clad-b", 1.55, 8.06, 1.50, 0.04, 0, KW_SILL, "stoneTile", collide=False),
+  box("k-clad-t", 1.55, 8.06, 1.50, 0.04, KW_HEAD, 4.6 - KW_HEAD, "stoneTile", collide=False),
+  box("k-sur-t", 1.55, 8.20, 1.80, 0.32, KW_HEAD, 0.15, "paint", collide=False),
+  box("k-sur-b", 1.55, 8.20, 1.80, 0.32, KW_SILL - 0.15, 0.15, "paint"),
+  box("k-sur-l", 0.725, 8.20, 0.15, 0.32, KW_SILL - 0.15, 1.5, "paint", collide=False),
+  box("k-sur-r", 2.375, 8.20, 0.15, 0.32, KW_SILL - 0.15, 1.5, "paint", collide=False),
+  box("k-uplight", 1.55, 8.30, 0.16, 0.10, 0.02, 0.05, "lamp", collide=False),
+  # 2. dining: terracotta jali screen 0.3 m proud of the window, in a white planter, creepers hanging from the slab above
+  box("dining-planter", 4.75, 8.85, 3.50, 0.70, 0, GF, "paint"),
+  box("dining-soil", 4.75, 8.85, 3.40, 0.60, GF, 0.02, "concrete", collide=False),
+  box("jali", 4.83, 8.76, 1.80, 0.05, GF, 2.60, "jali", collide=False),
+  box("jali-uplight", 4.83, 9.05, 0.16, 0.10, GF + 0.02, 0.05, "lamp", collide=False),
+  # 3. FF bedroom 3: deep white box window, stone + teak cladding to its left, teak band under the eave
+  box("bay-sill", 5.40, 10.14, 2.48, 0.60, FF + 0.25, 0.20, "paint"),
+  box("bay-head", 5.40, 10.14, 2.48, 0.60, FF + 2.1, 0.25, "paint", collide=False),
+  box("bay-side-l", 4.28, 10.14, 0.24, 0.60, FF + 0.25, 2.1, "paint"),
+  box("bay-side-r", 6.52, 10.14, 0.24, 0.60, FF + 0.25, 2.1, "paint"),
+  box("b3-stone", 3.205, 9.865, 0.69, 0.05, CEIL0, EAVE - CEIL0, "stoneTile", collide=False),
+  box("b3-teak", 3.855, 9.865, 0.61, 0.05, CEIL0, EAVE - CEIL0, "teak", collide=False),
+  box("b3-band", 5.40, 9.865, 3.70, 0.05, ROOF - 0.15, EAVE - ROOF + 0.15, "teak", collide=False),
+  box("b3-par-l", 2.98, 7.20, 0.24, 5.28, ROOF, EAVE - ROOF, "paint", collide=False),
+  box("b3-par-r", 7.13, 7.20, 0.24, 5.28, ROOF, EAVE - ROOF, "paint", collide=False),
+  box("b3-par-b", 5.05, 4.68, 4.39, 0.24, ROOF, EAVE - ROOF, "paint", collide=False),
+  box("b3-par-f", 5.05, 9.72, 4.39, 0.24, ROOF, EAVE - ROOF, "paint", collide=False),
+  box("b3-eave", 5.05, 7.25, 5.00, 6.10, EAVE, 0.14, "paint", collide=False),
+  *[box(f"b3-dl-{i}", 3.3 + i * 1.15, 10.05, 0.12, 0.12, EAVE - 0.02, 0.02, "lamp", collide=False) for i in range(4)],
+  # 4. centre: white surround around the double-height glazing, teak vertical louvres to its right
+  box("c-sur-t", 9.515, 8.62, 2.39, 0.32, FF + 2.4, 0.22, "paint", collide=False),
+  box("c-sur-b", 9.515, 8.62, 2.39, 0.32, FF + 0.4, 0.20, "paint"),
+  box("c-sur-l", 8.42, 8.62, 0.20, 0.32, FF + 0.4, 2.22, "paint", collide=False),
+  box("c-sur-r", 10.61, 8.62, 0.20, 0.32, FF + 0.4, 2.22, "paint", collide=False),
+  *[box(f"louvre-{i}", 10.85 + i * 0.14, 8.58, 0.06, 0.20, CEIL0 + 0.1, ROOF - CEIL0 - 0.1, "teak", collide=False) for i in range(9)],
+  box("c-parapet", 9.68, 8.40, 5.10, 0.24, ROOF, 0.30, "paint", collide=False),
+  box("c-eave", 9.68, 8.60, 5.10, 0.60, ROOF + 0.30, 0.12, "paint", collide=False),
+  # 5. right block: stacked-stone pier and planter at the GF bedroom, the balcony as a white box with a teak soffit
+  box("m-stone", 15.71, 7.40, 0.84, 0.05, 0, CEIL0 + 0.15, "stone", collide=False),
+  box("m-planter", 14.00, 7.80, 2.90, 0.80, 0, 0.40, "paint"),
+  box("m-soil", 14.00, 7.80, 2.80, 0.70, 0.40, 0.02, "concrete", collide=False),
+  box("m-uplight", 14.00, 8.22, 0.16, 0.08, 0.40, 0.05, "lamp", collide=False),
+  box("balc-roof", 14.12, 8.04, 4.02, 1.56, ROOF - 0.15, 0.15, "paint", collide=False),
+  box("balc-soffit", 14.12, 8.04, 3.54, 1.32, ROOF - 0.20, 0.05, "teak", collide=False),
+  *[box(f"balc-dl-{i}", 13.0 + i * 1.1, 8.05, 0.12, 0.12, ROOF - 0.22, 0.02, "lamp", collide=False) for i in range(3)],
+  box("balc-edge", 14.12, 8.84, 4.02, 0.06, CEIL0 - 0.20, 0.35, "paint", collide=False),
+  # master roof: parapet ring + the higher overhanging roof slab with downlights
+  box("m-par-f", 14.12, 8.70, 4.02, 0.24, ROOF, EAVE + 0.1 - ROOF, "paint", collide=False),
+  box("m-par-b", 14.12, 1.50, 4.02, 0.24, ROOF, EAVE + 0.1 - ROOF, "paint", collide=False),
+  box("m-par-l", 12.23, 5.10, 0.24, 7.20, ROOF, EAVE + 0.1 - ROOF, "paint", collide=False),
+  box("m-par-r", 16.01, 5.10, 0.24, 7.20, ROOF, EAVE + 0.1 - ROOF, "paint", collide=False),
+  box("m-eave", 14.15, 5.15, 4.80, 8.50, EAVE + 0.1, 0.14, "paint", collide=False),
+  *[box(f"m-dl-{i}", 12.6 + i * 1.2, 9.25, 0.12, 0.12, EAVE + 0.08, 0.02, "lamp", collide=False) for i in range(4)],
+  # right side: horizontal grooves on the solid strip of the side wall between the windows (z 4.32-6.53)
+  *[box(f"groove-{i}", 16.145, 5.42, 0.02, 1.30, 0.6 + i * 0.3, 0.03, "blackMetal", collide=False) for i in range(20)],
+]
+boxes += facade
 
 furniture = [
   # ===== GF =====
@@ -281,9 +357,18 @@ plants = [
   dict(type="palm", x=19.0, z=1.0, scale=0.9), dict(type="tree", x=18.6, z=13.6),
   dict(type="tree", x=-1.8, z=-2.4, scale=0.9),
   dict(type="hedge", x=6.4, z=17.4, w=3.4, d=0.6), dict(type="hedge", x=15.4, z=17.4, w=9.0, d=0.6),
-  dict(type="shrub", x=6.0, z=10.9), dict(type="shrub", x=12.9, z=10.9), dict(type="shrub", x=18.2, z=9.0, scale=1.3),
-  dict(type="hedge", x=14.2, z=7.85, w=3.5, d=0.5), dict(type="potted", x=7.15, z=10.55),
-  dict(type="potted", x=11.75, z=10.55),
+  dict(type="shrub", x=18.2, z=9.0, scale=1.3),
+  # tropical beds along the front (render): kitchen front, jali planter, step flanks, bedroom planter, right side
+  *[dict(type="tropical", x=x, z=8.65, scale=0.9) for x in (0.35, 1.25, 2.45)],
+  *[dict(type="tropical", x=x, z=9.02, y=GF, scale=0.75) for x in (3.35, 4.05, 5.65, 6.25)],
+  dict(type="tropical", x=7.25, z=10.55, scale=0.95), dict(type="tropical", x=11.65, z=10.55, scale=0.95),
+  dict(type="potted", x=8.0, z=10.0, y=GF, scale=0.9), dict(type="potted", x=10.9, z=10.0, y=GF, scale=0.9),
+  *[dict(type="tropical", x=x, z=7.82, y=0.4, scale=0.8) for x in (12.85, 13.65, 14.45, 15.2)],
+  *[dict(type="tropical", x=16.75, z=z, scale=1.0) for z in (2.4, 3.9, 5.4)],
+  dict(type="tropical", x=-0.6, z=17.0, scale=1.2), dict(type="tropical", x=17.8, z=16.9, scale=1.2),
+  dict(type="tropical", x=6.2, z=11.3, scale=1.1), dict(type="tropical", x=12.8, z=11.3, scale=1.1),
+  # creepers hanging from the edge of bedroom 3's slab over the jali
+  dict(type="vine", x=4.75, z=9.90, y=CEIL0, w=3.6, d=1.1),
   # courtyard landscaping (left + right planting strips, trees at the back)
   dict(type="tree", x=10.40, z=0.42, y=GF, scale=0.45), dict(type="tree", x=11.62, z=0.45, y=GF, scale=0.4),
   dict(type="hedge", x=9.47, z=2.0, y=GF + 0.12, w=0.35, d=2.1), dict(type="hedge", x=11.73, z=2.05, y=GF + 0.12, w=0.35, d=2.0),
@@ -299,9 +384,21 @@ cfg = dict(
   wallThickness=T, slabThickness=0.15,
   floors=[dict(name="Ground Floor", y=GF, height=H), dict(name="First Floor", y=FF, height=H)],
   rooms=rooms, openings=openings, walls=walls, stairs=stairs, boxes=boxes, furniture=furniture, plants=plants,
-  plot=dict(x1=-3.5, z1=-4.0, x2=20.5, z2=18.0, wallHeight=1.5, gates=[dict(x1=8.3, x2=10.6), dict(x1=0.4, x2=4.8)]),
+  plot=dict(x1=-3.5, z1=-4.0, x2=20.5, z2=18.0, wallHeight=1.5, material="paint",
+            gates=[dict(x1=8.3, x2=10.6), dict(x1=0.4, x2=4.8)]),
   spawn=dict(x=9.44, z=16.6, yaw=0),
-  sun=[-25, 38, 30],
+  # golden hour: low warm sun from the front-left, as in the render
+  sun=[-30, 16, 32], sunColor="#ffc98a",
+  lights=[
+    dict(x=1.55, y=0.7, z=8.45, intensity=2.0, distance=3.0),     # kitchen window uplight
+    dict(x=4.83, y=0.9, z=9.15, intensity=3.0, distance=3.5),     # jali uplight
+    dict(x=9.44, y=3.15, z=9.30, intensity=4.0, distance=5.0),    # sit-out downlights
+    dict(x=7.80, y=2.70, z=8.70, intensity=1.5, distance=2.5),    # sconces
+    dict(x=11.95, y=2.70, z=8.70, intensity=1.5, distance=2.5),
+    dict(x=14.00, y=0.9, z=8.30, intensity=2.5, distance=3.0),    # bedroom planter uplight
+    dict(x=14.10, y=6.35, z=8.10, intensity=3.0, distance=3.5),   # balcony soffit
+    dict(x=5.00, y=7.05, z=10.15, intensity=1.5, distance=3.0),   # eave downlights
+  ],
 )
 json.dump(cfg, open("src/data/house.json", "w"), indent=1)
 print(len(rooms), "rooms,", len(openings), "openings,", len(furniture), "furniture")

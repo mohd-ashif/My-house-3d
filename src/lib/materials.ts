@@ -117,6 +117,41 @@ const DRAW: Record<string, Draw> = {
     }
     speckle(ctx, S, r, 5000, '0,0,0', 0.2);
   },
+  stoneTile: (ctx, S, r) => {
+    // large-format grey textured stone, 2 x 2 tiles per texture
+    ctx.fillStyle = '#6f6c68'; ctx.fillRect(0, 0, S, S);
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+      ctx.fillStyle = `hsl(30, 3%, ${52 + r() * 10}%)`;
+      ctx.fillRect(i * S / 2 + 2, j * S / 2 + 2, S / 2 - 4, S / 2 - 4);
+    }
+    speckle(ctx, S, r, 16000, '40,40,40', 0.16, 3);
+    speckle(ctx, S, r, 6000, '235,235,230', 0.14, 3);
+    for (let k = 0; k < 10; k++) {
+      ctx.strokeStyle = `rgba(250,250,245,${0.08 + r() * 0.12})`; ctx.lineWidth = 0.6 + r() * 1.5;
+      ctx.beginPath(); const y = r() * S; ctx.moveTo(0, y); ctx.bezierCurveTo(S * 0.3, y + (r() - 0.5) * 160, S * 0.7, y + (r() - 0.5) * 160, S, y + (r() - 0.5) * 90); ctx.stroke();
+    }
+  },
+  jali: (ctx, S) => {
+    // terracotta CNC lattice: square openings (transparent, see getMaterial) with an inner diamond
+    ctx.fillStyle = '#a5442a'; ctx.fillRect(0, 0, S, S);
+    const n = 4, cell = S / n, bar = cell * 0.18;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const x = i * cell + bar / 2, y = j * cell + bar / 2, w = cell - bar;
+      ctx.clearRect(x, y, w, w);
+      ctx.fillStyle = '#a5442a';
+      const m = w * 0.32;
+      ctx.beginPath(); ctx.moveTo(x + w / 2, y + m); ctx.lineTo(x + w - m, y + w / 2); ctx.lineTo(x + w / 2, y + w - m); ctx.lineTo(x + m, y + w / 2); ctx.closePath(); ctx.fill();
+    }
+  },
+  paverGrass: (ctx, S, r) => {
+    // large grey pavers with grass joints, like the forecourt in the render
+    ctx.fillStyle = '#4f7a2e'; ctx.fillRect(0, 0, S, S);
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+      ctx.fillStyle = `hsl(28, 6%, ${62 + r() * 8}%)`;
+      ctx.fillRect(i * S / 2 + 7, j * S / 2 + 7, S / 2 - 14, S / 2 - 14);
+    }
+    speckle(ctx, S, r, 9000, '60,55,50', 0.12);
+  },
   plaster: (ctx, S, r) => {
     ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, S, S);
     speckle(ctx, S, r, 9000, '0,0,0', 0.035, 3);
@@ -178,6 +213,10 @@ const DEFS: Record<MaterialName, Def> = {
   crystal: { color: '#fff1d0', rough: 0.1, metal: 0.3, emissive: '#ffcf7a', emissiveIntensity: 1.5 },
   walnut: { color: '#8a5a3a', rough: 0.5, tex: 'wood', size: 1.0 },
   cushion: { color: '#e9e1d2', rough: 0.95, tex: 'fabric', size: 0.5 },
+  teak: { color: '#e09a5c', rough: 0.45, tex: 'wood', size: 1.0 },
+  stoneTile: { color: '#ffffff', rough: 0.7, tex: 'stoneTile', size: 1.2 },
+  jali: { color: '#ffffff', rough: 0.8, tex: 'jali', size: 0.6 },
+  paverGrass: { color: '#ffffff', rough: 0.8, tex: 'paverGrass', size: 1.6 },
 };
 
 const baseTextures = new Map<string, THREE.CanvasTexture>();
@@ -202,6 +241,10 @@ export function getMaterial(name: MaterialName, repeatX = 1, repeatY = 1): THREE
       color: def.color, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.22,
       envMapIntensity: 1.6, clearcoat: 1, depthWrite: false, side: THREE.DoubleSide,
     });
+  } else if (name === 'jali') {
+    const t = baseTexture('jali').clone();
+    t.repeat.set(rx, ry); t.needsUpdate = true;
+    m = new THREE.MeshStandardMaterial({ map: t, roughness: def.rough, alphaTest: 0.5, side: THREE.DoubleSide });
   } else if (name === 'water') {
     m = new THREE.MeshPhysicalMaterial({ color: def.color, roughness: 0.05, transparent: true, opacity: 0.8, clearcoat: 1 });
   } else {

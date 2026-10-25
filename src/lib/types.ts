@@ -5,7 +5,8 @@ export type MaterialName =
   | 'marble' | 'tile' | 'bathTile' | 'grass' | 'paving' | 'concrete' | 'granite'
   | 'metal' | 'blackMetal' | 'glass' | 'mirror' | 'screen' | 'fabric' | 'fabricDark'
   | 'mattress' | 'white' | 'red' | 'solar' | 'leaf' | 'water' | 'lamp' | 'none'
-  | 'sage' | 'rattan' | 'crystal' | 'walnut' | 'cushion';
+  | 'sage' | 'rattan' | 'crystal' | 'walnut' | 'cushion'
+  | 'teak' | 'stoneTile' | 'jali' | 'paverGrass';
 
 export interface FloorDef {
   name: string;
@@ -40,6 +41,7 @@ export interface Opening {
   sill?: number;   // height above floor (windows)
   head?: number;   // top of opening above floor
   main?: boolean;  // main entrance door
+  frame?: 'black' | 'teak'; // window/sliding frame finish (default black metal)
 }
 
 export interface ExtraWall {
@@ -84,12 +86,15 @@ export interface Furniture {
 }
 
 export interface Plant {
-  type: 'palm' | 'tree' | 'shrub' | 'hedge' | 'potted';
+  type: 'palm' | 'tree' | 'shrub' | 'hedge' | 'potted' | 'tropical' | 'vine'; // vine: hangs w long (along x), d deep
   x: number; z: number;
   y?: number;
   scale?: number;
   w?: number; d?: number; // hedge size
 }
+
+/** Extra point light (façade sconces, uplights, soffit downlights). Brighter at night. */
+export interface LightDef { x: number; y: number; z: number; color?: string; intensity?: number; distance?: number }
 
 export interface HouseConfig {
   name: string;
@@ -103,7 +108,9 @@ export interface HouseConfig {
   boxes?: BoxDef[];
   furniture?: Furniture[];
   plants?: Plant[];
-  plot?: { x1: number; z1: number; x2: number; z2: number; wallHeight?: number; gates?: { x1: number; x2: number }[] };
+  plot?: { x1: number; z1: number; x2: number; z2: number; wallHeight?: number; material?: MaterialName; gates?: { x1: number; x2: number }[] };
+  lights?: LightDef[];
+  sunColor?: string;
   spawn: { x: number; z: number; yaw?: number };
   sun?: [number, number, number];
 }

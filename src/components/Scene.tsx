@@ -50,7 +50,7 @@ function Lights({ world, night, shadows }: { world: World; night: boolean; shado
         position={sunPos}
         target={target}
         intensity={night ? 0.06 : 3.2}
-        color={night ? '#9fb4ff' : '#fff1d6'}
+        color={night ? '#9fb4ff' : (world.cfg.sunColor ?? '#fff1d6')}
         castShadow={shadows}
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-R}
@@ -69,6 +69,10 @@ function Lights({ world, night, shadows }: { world: World; night: boolean; shado
         <pointLight key={i} position={[l.x, l.y, l.z]} intensity={night ? 9 : 3.5} distance={night ? 9 : 7} decay={1.6} color={night ? '#ffd29a' : '#fff6ea'} />
       ))}
       {night && <pointLight position={[cx, 3, cz + 8]} intensity={20} distance={18} color="#ffcf8a" />}
+      {(world.cfg.lights ?? []).map((l, i) => (
+        <pointLight key={`l${i}`} position={[l.x, l.y, l.z]} color={l.color ?? '#ffcf8a'}
+          intensity={(l.intensity ?? 3) * (night ? 3 : 1)} distance={l.distance ?? 4} decay={1.8} />
+      ))}
       {chandeliers.map((c, i) => (
         <pointLight key={`ch${i}`} position={[c.x, c.y, c.z]} intensity={night ? 16 : 3} distance={9} decay={1.6} color="#ffd28c" />
       ))}

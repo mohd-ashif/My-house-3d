@@ -11,8 +11,8 @@ export interface Obstacle { x1: number; z1: number; x2: number; z2: number; y0: 
 export interface RectSurface { kind: 'rect'; x1: number; z1: number; x2: number; z2: number; top: number; bottom: number }
 export interface StairSurface { kind: 'stair'; x1: number; z1: number; x2: number; z2: number; dir: Flight['dir']; y0: number; y1: number; n: number }
 export type Surface = RectSurface | StairSurface;
-export interface DoorInst { axis: 'x' | 'z'; a: number; b: number; c: number; y: number; h: number; type: 'door' | 'sliding'; main: boolean; floor: number }
-export interface GlassInst { axis: 'x' | 'z'; a: number; b: number; c: number; y0: number; y1: number; t: number }
+export interface DoorInst { axis: 'x' | 'z'; a: number; b: number; c: number; y: number; h: number; type: 'door' | 'sliding'; main: boolean; floor: number; frame?: 'black' | 'teak' }
+export interface GlassInst { axis: 'x' | 'z'; a: number; b: number; c: number; y0: number; y1: number; t: number; frame?: 'black' | 'teak' }
 
 export interface World {
   cfg: HouseConfig;
@@ -158,7 +158,7 @@ export function buildWorld(cfg: HouseConfig): World {
       case 'sliding': {
         const head = o.head ?? 2.4;
         fill(y + head, top);
-        doors.push({ axis, a, b, c: L.c, y, h: head, type: 'sliding', main: !!o.main, floor: o.floor });
+        doors.push({ axis, a, b, c: L.c, y, h: head, type: 'sliding', main: !!o.main, floor: o.floor, frame: o.frame });
         break;
       }
       case 'window':
@@ -167,7 +167,7 @@ export function buildWorld(cfg: HouseConfig): World {
         const head = o.head ?? (o.type === 'window' ? 2.1 : 2.3);
         fill(o.floor === 0 ? y : wallBase(o.floor), y + sill);
         fill(y + head, top);
-        glass.push({ axis, a, b, c: L.c, y0: y + sill, y1: y + head, t: T });
+        glass.push({ axis, a, b, c: L.c, y0: y + sill, y1: y + head, t: T, frame: o.frame });
         obstacles.push(toObstacle(linePiece(axis, a, b, L.c, y + sill, head - sill, T, 'glass')));
         break;
       }
@@ -237,7 +237,8 @@ export function buildWorld(cfg: HouseConfig): World {
   if (cfg.plot) {
     const { x1, z1, x2, z2 } = cfg.plot;
     const h = cfg.plot.wallHeight ?? 1.5;
-    const add = (axis: 'x' | 'z', a: number, b: number, c: number) => { if (b - a > 0.05) solid(linePiece(axis, a, b, c, 0, h, 0.2, 'paintGrey')); };
+    const mat = cfg.plot.material ?? 'paintGrey';
+    const add = (axis: 'x' | 'z', a: number, b: number, c: number) => { if (b - a > 0.05) solid(linePiece(axis, a, b, c, 0, h, 0.2, mat)); };
     add('x', x1, x2, z1);
     add('z', z1, z2, x1);
     add('z', z1, z2, x2);

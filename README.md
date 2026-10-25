@@ -37,6 +37,12 @@ shows where you are standing, which helps when placing furniture.
 (28.54 pt per metre on both sheets, walls 0.24 m); the FF sheet sits at +1.67 m, +0.20 m from the GF
 sheet, aligned on the staircase. Edit the numbers there and run `python build_house_json.py`.
 
+The front and right façade follow the render "Modern Tropical Villa at Golden Hour": the `facade` list in
+`build_house_json.py` holds the cladding (grey stone tiles, teak, stacked stone), the terracotta jali,
+box-window and glazing surrounds, teak louvres, the sit-out portal, balcony box, overhanging roofs with
+downlights and the right-side grooves; `lights`, `sun`/`sunColor` set the golden-hour lighting. None of it
+moves a room. Façade view: `?view=20.0,3.2,23.5,7.6,3.6,6.5`.
+
 ## Checking it against the plans
 ```bash
 python scripts/validate_house.py src/data/house.json --out plan_check.png   # sizes, openings, overlaps + overlay on the PDFs

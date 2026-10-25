@@ -52,6 +52,62 @@ function Palm({ p }: { p: Plant }) {
   );
 }
 
+function broadLeafGeometry() {
+  // banana / heliconia leaf: long blade curving outwards and down
+  const g = new THREE.PlaneGeometry(0.5, 1.3, 2, 8);
+  const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i) + 0.65; // 0..1.3 along the blade
+    const x = pos.getX(i) * Math.sin((y / 1.3) * Math.PI) * 1.2;
+    pos.setXYZ(i, x, y - 0.18 * y * y, 0.35 * y * y);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+function Tropical({ p }: { p: Plant }) {
+  const s = p.scale ?? 1;
+  const leaf = useMemo(broadLeafGeometry, []);
+  const seed = Math.abs(Math.round(p.x * 13 + p.z * 7));
+  return (
+    <group position={[p.x, p.y ?? 0, p.z]} scale={s}>
+      {Array.from({ length: 9 }, (_, i) => {
+        const a = (i / 9) * Math.PI * 2 + seed;
+        return (
+          <group key={i} rotation={[0, a, 0]}>
+            <mesh geometry={leaf} material={leafMats[(i + seed) % 4]} position={[0, 0.05 + (i % 3) * 0.1, 0.03]}
+              rotation={[0.2 + (i % 3) * 0.22, 0, 0]} castShadow />
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+function Vine({ p }: { p: Plant }) {
+  // creeper hanging from a beam: clumps along w, strands dropping up to d
+  const w = p.w ?? 2, drop = p.d ?? 0.8;
+  const n = Math.max(3, Math.round(w / 0.22));
+  return (
+    <group position={[p.x - w / 2, p.y ?? 0, p.z]}>
+      {Array.from({ length: n }, (_, i) => {
+        const x = (i + 0.5) * (w / n);
+        const len = drop * (0.45 + 0.55 * Math.abs(Math.sin(i * 1.7)));
+        const k = Math.max(2, Math.round(len / 0.14));
+        return (
+          <group key={i} position={[x, 0, ((i * 37) % 5) * 0.03 - 0.06]}>
+            {Array.from({ length: k }, (_, j) => (
+              <mesh key={j} material={leafMats[(i + j) % 4]} position={[Math.sin(i + j) * 0.04, -j * 0.14, 0]} castShadow>
+                <icosahedronGeometry args={[0.11 - j * (0.05 / k), 0]} />
+              </mesh>
+            ))}
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
 function Tree({ p }: { p: Plant }) {
   const s = p.scale ?? 1;
   return (
@@ -103,6 +159,8 @@ export default function Plants({ plants }: { plants: Plant[] }) {
           case 'tree': return <Tree key={i} p={p} />;
           case 'hedge': return <Hedge key={i} p={p} />;
           case 'potted': return <Potted key={i} p={p} />;
+          case 'tropical': return <Tropical key={i} p={p} />;
+          case 'vine': return <Vine key={i} p={p} />;
           default: return <Shrub key={i} p={p} />;
         }
       })}

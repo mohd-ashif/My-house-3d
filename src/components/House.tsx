@@ -24,9 +24,9 @@ function PieceMesh({ p, shadows }: { p: Piece; shadows: boolean }) {
   );
 }
 
-function Pane({ len, h, t = 0.025 }: { len: number; h: number; t?: number }) {
-  const f = 0.045;
-  const frame = getMaterial('blackMetal');
+function Pane({ len, h, t = 0.025, teak = false }: { len: number; h: number; t?: number; teak?: boolean }) {
+  const f = teak ? 0.07 : 0.045;
+  const frame = getMaterial(teak ? 'teak' : 'blackMetal');
   return (
     <group>
       <mesh geometry={unitBox} material={getMaterial('glass')} scale={[len - f, h - f, t]} position={[0, h / 2, 0]} />
@@ -54,7 +54,7 @@ function Window({ g }: { g: GlassInst }) {
     <group position={tf.position} rotation={tf.rotation}>
       {Array.from({ length: panes }, (_, i) => (
         <group key={i} position={[(len / panes) * (i + 0.5), 0, 0]}>
-          <Pane len={len / panes} h={h} />
+          <Pane len={len / panes} h={h} teak={g.frame === 'teak'} />
         </group>
       ))}
     </group>
@@ -81,12 +81,12 @@ function Door({ d }: { d: DoorInst }) {
   if (d.type === 'sliding') {
     return (
       <group position={tf.position} rotation={tf.rotation}>
-        <group position={[len * 0.25, 0, 0.03]}><Pane len={len / 2 + 0.04} h={d.h} /></group>
-        <group ref={slide} position={[len * 0.75, 0, -0.03]}><Pane len={len / 2 + 0.04} h={d.h} /></group>
+        <group position={[len * 0.25, 0, 0.03]}><Pane len={len / 2 + 0.04} h={d.h} teak={d.frame === 'teak'} /></group>
+        <group ref={slide} position={[len * 0.75, 0, -0.03]}><Pane len={len / 2 + 0.04} h={d.h} teak={d.frame === 'teak'} /></group>
       </group>
     );
   }
-  const wood = getMaterial(d.main ? 'darkWood' : 'doorWood', 1, 2);
+  const wood = getMaterial(d.main ? 'teak' : 'doorWood', 1, 2);
   const metal = getMaterial('metal');
   return (
     <group position={tf.position} rotation={tf.rotation}>
