@@ -6,7 +6,9 @@ export type MaterialName =
   | 'metal' | 'blackMetal' | 'glass' | 'mirror' | 'screen' | 'fabric' | 'fabricDark'
   | 'mattress' | 'white' | 'red' | 'solar' | 'leaf' | 'water' | 'lamp' | 'none'
   | 'sage' | 'rattan' | 'crystal' | 'walnut' | 'cushion'
-  | 'teak' | 'stoneTile' | 'jali' | 'paverGrass';
+  | 'teak' | 'stoneTile' | 'jali' | 'paverGrass'
+  | 'exposedConcrete' | 'laterite' | 'darkGranite' | 'clayTile' | 'breezeBlock' | 'perforatedTerracotta'
+  | 'charcoalPaint' | 'timberSoffit' | 'copper' | 'sheer' | 'lightStone' | 'roofDark' | 'road';
 
 export interface FloorDef {
   name: string;
@@ -86,7 +88,8 @@ export interface Furniture {
 }
 
 export interface Plant {
-  type: 'palm' | 'tree' | 'shrub' | 'hedge' | 'potted' | 'tropical' | 'vine'; // vine: hangs w long (along x), d deep
+  type: 'palm' | 'tree' | 'shrub' | 'hedge' | 'potted' | 'tropical' | 'vine' // vine: hangs w long (along x), d deep
+    | 'heliconia' | 'alocasia' | 'fern' | 'rainTree';
   x: number; z: number;
   y?: number;
   scale?: number;
@@ -113,4 +116,82 @@ export interface HouseConfig {
   sunColor?: string;
   spawn: { x: number; z: number; yaw?: number };
   sun?: [number, number, number];
+}
+
+// ======================= exterior design styles (src/data/styles/*.json) =======================
+// A style dresses the plan without touching it: outer-skin materials, roofs, façade elements,
+// landscaping and lighting. Rooms, openings, stairs and furniture always come from house.json.
+
+/** Exterior material roles a style assigns. */
+export type Role = 'wallMain' | 'wallAccent1' | 'wallAccent2' | 'plinth' | 'fascia' | 'soffit'
+  | 'windowFrame' | 'doorMain' | 'railing' | 'compoundWall' | 'paving';
+
+export type Face = 'front' | 'back' | 'left' | 'right'; // outward normal +z / -z / -x / +x
+
+/** Paint part of the exterior walls with another role. from/to run along the wall (x for front/back, z for left/right). */
+export interface WallZone { face: Face; floor?: number; from: number; to: number; y0?: number; y1?: number; role: Role }
+
+export interface RoofDef {
+  type: 'flat' | 'gable' | 'skillion';
+  rect: { x1: number; z1: number; x2: number; z2: number }; // footprint the roof covers (before overhang)
+  baseY: number;              // eave level (top of the wall it sits on)
+  ridgeAxis?: 'x' | 'z';      // gable: ridge direction; skillion: the slope runs across it
+  pitchDeg?: number;
+  ridgeOffset?: number;       // gable: -0.5..0.5 shifts the ridge for an asymmetric gable
+  overhang?: number;          // all sides
+  overhangFront?: number;     // +z side (the street)
+  thickness?: number;
+  material: MaterialName;
+  soffitMaterial?: MaterialName;
+  gableInfill?: 'plaster' | 'glass' | 'louvers' | 'open';
+  infillMaterial?: MaterialName;
+  louverMaterial?: MaterialName;
+  rafters?: boolean;          // exposed timber rafters + edge purlins under the roof plane
+  rafterMaterial?: MaterialName;
+  bargeMaterial?: MaterialName; // boards along the sloping edges
+  fasciaLayers?: number;      // flat: thin slabs stepping outwards
+  fasciaMaterial?: MaterialName;
+  lowSide?: '+x' | '-x' | '+z' | '-z'; // skillion: the low edge
+}
+
+export type ElementDef =
+  | ({ type: 'box' } & Omit<BoxDef, 'name' | 'walkable'>)
+  /** slats spread along a line from (x1,z1) to (x2,z2); vertical (fins) or horizontal (bands) */
+  | { type: 'louvers'; x1: number; z1: number; x2: number; z2: number; y0: number; y1: number; count: number;
+      dir: 'vertical' | 'horizontal'; slat?: number; depth?: number; material: MaterialName; collide?: boolean }
+  /** a rectangular frame standing proud of a wall: axis = the wall it faces (x: front/back) */
+  | { type: 'boxFrame'; axis: 'x' | 'z'; a1: number; a2: number; c: number; y0: number; y1: number; depth: number; thickness: number;
+      outward: 1 | -1; material: MaterialName; back?: MaterialName }
+  | { type: 'column'; x: number; z: number; y: number; h: number; r: number; material: MaterialName; baseMaterial?: MaterialName; collide?: boolean }
+  /** hanging creeper curtain along x (or z) at height y */
+  | { type: 'creeper'; axis?: 'x' | 'z'; a1: number; a2: number; c: number; y: number; minLen: number; maxLen: number; density?: number }
+  | { type: 'railing'; x1: number; z1: number; x2: number; z2: number; y: number; h: number; material: MaterialName; posts?: number; balusters?: boolean };
+
+export interface StyleLighting {
+  sun: [number, number, number];      // direction towards the sun
+  sunColor: string;
+  sunIntensity: number;
+  hemi: [string, string, number];     // sky colour, ground colour, intensity
+  ambient: number;
+  exposure: number;
+  sky: { turbidity: number; rayleigh: number; mieCoefficient: number; mieDirectionalG: number };
+  background: string;
+  fog: string;
+  clouds?: { count: number; opacity: number; color?: string; height?: number };
+  facadeLights?: LightDef[];
+}
+
+export interface StyleDef {
+  id: string;
+  name: string;
+  subtitle: string;
+  description: string;
+  swatch: string[];                    // colours for the card before its thumbnail exists
+  materials: Partial<Record<Role, MaterialName>>;
+  wallZones: WallZone[];
+  roofs: RoofDef[];
+  elements: ElementDef[];
+  landscape: { plants: Plant[]; road?: { x1: number; z1: number; x2: number; z2: number; reflect?: boolean } };
+  lighting: StyleLighting;
+  introCamera: { pos: [number, number, number]; target: [number, number, number] };
 }

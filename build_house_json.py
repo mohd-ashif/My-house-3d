@@ -174,8 +174,6 @@ boxes = [
   box("sitout-side-r", 12.17, 9.15, 0.12, 1.62, 0, GF, "granite", walkable=True),
   box("step-2", 9.44, 10.35, 3.6, 0.30, 0, 0.30, "granite", walkable=True),
   box("step-1", 9.44, 10.65, 3.6, 0.30, 0, 0.15, "granite", walkable=True),
-  # forecourt: large pavers with grass joints across the whole front (render)
-  box("forecourt", 8.50, 14.40, 18.0, 7.20, 0, 0.02, "paverGrass", walkable=True),
   # back steps from the work area (plan: treads at z -0.27 / -0.02 / 0.23 / 0.48)
   box("back-step-2", 1.82, 0.355, 0.9, 0.25, 0, 0.30, "granite", walkable=True),
   box("back-step-1", 1.82, 0.105, 0.9, 0.25, 0, 0.15, "granite", walkable=True),
@@ -190,30 +188,34 @@ boxes = [
   box("sitout-col-l", 6.65, 10.06, 0.45, 0.45, 0, CEIL0, "paint"),
   box("sitout-col-r", 12.23, 10.06, 0.45, 0.45, 0, CEIL0, "paint"),
   box("sitout-roof", 9.80, 9.33, 5.10, 1.74, CEIL0, 0.15, "paint"),
-  box("sitout-beam", 9.44, 10.06, 6.03, 0.45, CEIL0 - 0.30, 0.60, "paint", collide=False),
-  box("sitout-strip", 6.96, 8.50, 0.12, 0.06, GF, 2.9, "blackMetal", collide=False),  # black fin beside the portal
-  box("lamp-l", 7.80, 8.50, 0.12, 0.08, 2.55, 0.28, "lamp", collide=False),   # wall sconces either side
-  box("lamp-m", 9.98, 8.50, 0.12, 0.08, 2.55, 0.28, "lamp", collide=False),   # of the living window
-  box("lamp-r", 11.95, 8.50, 0.12, 0.08, 2.55, 0.28, "lamp", collide=False),  # and the main door
-  *[box(f"sitout-dl-{i}", 7.9 + i * 1.5, 9.25, 0.14, 0.14, CEIL0 - 0.02, 0.02, "lamp", collide=False) for i in range(4)],
-  # LED strips under the step nosings
-  box("led-sitout", 9.44, 10.21, 3.6, 0.02, GF - 0.05, 0.03, "lamp", collide=False),
-  box("led-step-2", 9.44, 10.51, 3.6, 0.02, 0.25, 0.03, "lamp", collide=False),
-  box("led-step-1", 9.44, 10.81, 3.6, 0.02, 0.10, 0.03, "lamp", collide=False),
   # wash counter in the passage beside the work area
   box("wash-counter", 2.71, 3.96, 0.40, 1.20, GF, 0.82, "white"),
   box("wash-top", 2.71, 3.96, 0.42, 1.22, GF + 0.82, 0.04, "granite", collide=False),
   box("wash-mirror", 2.53, 3.96, 0.02, 0.9, GF + 1.15, 0.75, "mirror", collide=False),
   # living partition slats above the half wall
   *[box(f"slat-{i}", 6.90 + i * 0.16, 4.68, 0.05, 0.08, GF + 1.0, CEIL0 - GF - 1.0, "walnut", collide=False) for i in range(18)],
-  # roof: pergola over the open part of the courtyard, solar panels (moved off the master roof,
-  # which now carries the overhanging eave), water tank
+]
+
+# ======================= STYLE 1: Modern Tropical - Golden Hour =======================
+# Everything below is exterior styling: it goes to src/data/styles/modern-tropical.json, not the plan.
+style_boxes = [
+  box("forecourt", 8.50, 14.40, 18.0, 7.20, 0, 0.02, "paverGrass", collide=False),
+  box("sitout-beam", 9.44, 10.06, 6.03, 0.45, CEIL0 - 0.30, 0.60, "paint", collide=False),
+  box("sitout-strip", 6.96, 8.50, 0.12, 0.06, GF, 2.9, "blackMetal", collide=False),  # black fin beside the portal
+  box("lamp-l", 7.80, 8.50, 0.12, 0.08, 2.55, 0.28, "lamp", collide=False),   # wall sconces either side
+  box("lamp-m", 9.98, 8.50, 0.12, 0.08, 2.55, 0.28, "lamp", collide=False),   # of the living window
+  box("lamp-r", 11.95, 8.50, 0.12, 0.08, 2.55, 0.28, "lamp", collide=False),  # and the main door
+  *[box(f"sitout-dl-{i}", 7.9 + i * 1.5, 9.25, 0.14, 0.14, CEIL0 - 0.02, 0.02, "lamp", collide=False) for i in range(4)],
+  box("led-sitout", 9.44, 10.21, 3.6, 0.02, GF - 0.05, 0.03, "lamp", collide=False),   # LED strips under the step nosings
+  box("led-step-2", 9.44, 10.51, 3.6, 0.02, 0.25, 0.03, "lamp", collide=False),
+  box("led-step-1", 9.44, 10.81, 3.6, 0.02, 0.10, 0.03, "lamp", collide=False),
+  # roof: pergola over the open part of the courtyard, solar panels, water tank
   *[box(f"pergola-{i}", 9.35 + i * 0.37, 0.81, 0.10, 1.38, FF + H - 0.15, 0.22, "walnut", collide=False) for i in range(8)],
-  box("solar-1", 10.70, 2.45, 2.9, 1.5, 6.95, 0.06, "solar"),
-  box("solar-2", 10.70, 4.25, 2.9, 1.5, 6.95, 0.06, "solar"),
-  box("solar-stand-1", 10.70, 2.45, 2.7, 1.2, 6.75, 0.2, "blackMetal"),
-  box("solar-stand-2", 10.70, 4.25, 2.7, 1.2, 6.75, 0.2, "blackMetal"),
-  box("water-tank", 5.50, 0.00, 1.1, 1.1, 6.75, 1.1, "white"),
+  box("solar-1", 10.70, 2.45, 2.9, 1.5, 6.95, 0.06, "solar", collide=False),
+  box("solar-2", 10.70, 4.25, 2.9, 1.5, 6.95, 0.06, "solar", collide=False),
+  box("solar-stand-1", 10.70, 2.45, 2.7, 1.2, 6.75, 0.2, "blackMetal", collide=False),
+  box("solar-stand-2", 10.70, 4.25, 2.7, 1.2, 6.75, 0.2, "blackMetal", collide=False),
+  box("water-tank", 5.50, 0.00, 1.1, 1.1, 6.75, 1.1, "white", collide=False),
 ]
 
 # ---------- front + right façade (render "Modern Tropical Villa at Golden Hour") ----------
@@ -280,7 +282,7 @@ facade = [
   # right side: horizontal grooves on the solid strip of the side wall between the windows (z 4.32-6.53)
   *[box(f"groove-{i}", 16.145, 5.42, 0.02, 1.30, 0.6 + i * 0.3, 0.03, "blackMetal", collide=False) for i in range(20)],
 ]
-boxes += facade
+style_boxes += facade
 
 furniture = [
   # ===== GF =====
@@ -351,7 +353,7 @@ furniture = [
   fur("studyDesk", F1, 3.73, 9.33, 180, w=1.2, d=0.5),
 ]
 
-plants = [
+style_plants = [
   # garden
   dict(type="palm", x=14.6, z=12.2), dict(type="palm", x=-1.9, z=9.6, scale=1.1),
   dict(type="palm", x=19.0, z=1.0, scale=0.9), dict(type="tree", x=18.6, z=13.6),
@@ -369,6 +371,9 @@ plants = [
   dict(type="tropical", x=6.2, z=11.3, scale=1.1), dict(type="tropical", x=12.8, z=11.3, scale=1.1),
   # creepers hanging from the edge of bedroom 3's slab over the jali
   dict(type="vine", x=4.75, z=9.90, y=CEIL0, w=3.6, d=1.1),
+]
+
+plants = [
   # courtyard landscaping (left + right planting strips, trees at the back)
   dict(type="tree", x=10.40, z=0.42, y=GF, scale=0.45), dict(type="tree", x=11.62, z=0.45, y=GF, scale=0.4),
   dict(type="hedge", x=9.47, z=2.0, y=GF + 0.12, w=0.35, d=2.1), dict(type="hedge", x=11.73, z=2.05, y=GF + 0.12, w=0.35, d=2.0),
@@ -384,21 +389,48 @@ cfg = dict(
   wallThickness=T, slabThickness=0.15,
   floors=[dict(name="Ground Floor", y=GF, height=H), dict(name="First Floor", y=FF, height=H)],
   rooms=rooms, openings=openings, walls=walls, stairs=stairs, boxes=boxes, furniture=furniture, plants=plants,
-  plot=dict(x1=-3.5, z1=-4.0, x2=20.5, z2=18.0, wallHeight=1.5, material="paint",
+  plot=dict(x1=-3.5, z1=-4.0, x2=20.5, z2=18.0, wallHeight=1.5,
             gates=[dict(x1=8.3, x2=10.6), dict(x1=0.4, x2=4.8)]),
   spawn=dict(x=9.44, z=16.6, yaw=0),
-  # golden hour: low warm sun from the front-left, as in the render
-  sun=[-30, 16, 32], sunColor="#ffc98a",
-  lights=[
-    dict(x=1.55, y=0.7, z=8.45, intensity=2.0, distance=3.0),     # kitchen window uplight
-    dict(x=4.83, y=0.9, z=9.15, intensity=3.0, distance=3.5),     # jali uplight
-    dict(x=9.44, y=3.15, z=9.30, intensity=4.0, distance=5.0),    # sit-out downlights
-    dict(x=7.80, y=2.70, z=8.70, intensity=1.5, distance=2.5),    # sconces
-    dict(x=11.95, y=2.70, z=8.70, intensity=1.5, distance=2.5),
-    dict(x=14.00, y=0.9, z=8.30, intensity=2.5, distance=3.0),    # bedroom planter uplight
-    dict(x=14.10, y=6.35, z=8.10, intensity=3.0, distance=3.5),   # balcony soffit
-    dict(x=5.00, y=7.05, z=10.15, intensity=1.5, distance=3.0),   # eave downlights
-  ],
 )
 json.dump(cfg, open("src/data/house.json", "w"), indent=1)
-print(len(rooms), "rooms,", len(openings), "openings,", len(furniture), "furniture")
+
+def el_box(b):
+    # style elements never collide unless they stand on the ground (planters, screens), like before
+    e = dict(type="box"); e.update(b); e.pop("name", None)
+    e["collide"] = bool(b.get("collide", True)) and b["y"] < 0.3
+    return e
+
+style = dict(
+  id="modern-tropical",
+  name="Modern Tropical",
+  subtitle="Golden Hour",
+  description="White render, teak, grey stone and a terracotta jali under thin overhanging roofs.",
+  swatch=["#f4f1ea", "#e09a5c", "#7a7570", "#a5442a"],
+  materials=dict(wallMain="paint", plinth="paint", compoundWall="paint", doorMain="teak"),
+  wallZones=[],
+  roofs=[],
+  elements=[el_box(b) for b in style_boxes],
+  landscape=dict(plants=style_plants),
+  lighting=dict(
+    sun=[-30, 16, 32], sunColor="#ffc98a", sunIntensity=3.2,
+    hemi=["#d6e8ff", "#4a5a35", 0.55], ambient=0.12, exposure=1.0,
+    sky=dict(turbidity=5, rayleigh=1.2, mieCoefficient=0.004, mieDirectionalG=0.85),
+    background="#bcd4ea", fog="#cfdbe6",
+    facadeLights=[
+      dict(x=1.55, y=0.7, z=8.45, intensity=2.0, distance=3.0),     # kitchen window uplight
+      dict(x=4.83, y=0.9, z=9.15, intensity=3.0, distance=3.5),     # jali uplight
+      dict(x=9.44, y=3.15, z=9.30, intensity=4.0, distance=5.0),    # sit-out downlights
+      dict(x=7.80, y=2.70, z=8.70, intensity=1.5, distance=2.5),    # sconces
+      dict(x=11.95, y=2.70, z=8.70, intensity=1.5, distance=2.5),
+      dict(x=14.00, y=0.9, z=8.30, intensity=2.5, distance=3.0),    # bedroom planter uplight
+      dict(x=14.10, y=6.35, z=8.10, intensity=3.0, distance=3.5),   # balcony soffit
+      dict(x=5.00, y=7.05, z=10.15, intensity=1.5, distance=3.0),   # eave downlights
+    ],
+  ),
+  introCamera=dict(pos=[20.0, 3.2, 23.5], target=[7.6, 3.6, 6.5]),
+)
+import os
+os.makedirs("src/data/styles", exist_ok=True)
+json.dump(style, open("src/data/styles/modern-tropical.json", "w"), indent=1)
+print(len(rooms), "rooms,", len(openings), "openings,", len(furniture), "furniture;", len(style["elements"]), "style-1 elements")

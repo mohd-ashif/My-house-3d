@@ -58,7 +58,7 @@ function pushOut(x: number, z: number, x1: number, z1: number, x2: number, z2: n
 export function resolve(w: World, x: number, z: number, feet: number, r = RADIUS): [number, number] {
   for (let it = 0; it < 4; it++) {
     let moved = false;
-    for (const o of w.obstacles) {
+    for (const list of [w.obstacles, w.extraObstacles]) for (const o of list) {
       if (o.y0 < feet + BODY && o.y1 > feet + STEP) {
         const p = pushOut(x, z, o.x1, o.z1, o.x2, o.z2, r);
         if (p) { x = p[0]; z = p[1]; moved = true; }

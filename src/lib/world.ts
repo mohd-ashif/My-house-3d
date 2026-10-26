@@ -1,4 +1,4 @@
-import type { Flight, HouseConfig, MaterialName, Room } from './types';
+import type { Face, Flight, HouseConfig, MaterialName, Role, Room } from './types';
 import { expandFurniture } from './furniture';
 
 /** A rendered box. (x,z) = center on plan, y = bottom. */
@@ -6,6 +6,9 @@ export interface Piece {
   x: number; z: number; w: number; d: number; y: number; h: number;
   material: MaterialName;
   uv?: 'floor' | 'wall';
+  role?: Role;   // exterior pieces whose material the active style decides (outer skins, compound wall)
+  face?: Face;   // outer skins: which way the face looks
+  floor?: number;
 }
 export interface Obstacle { x1: number; z1: number; x2: number; z2: number; y0: number; y1: number }
 export interface RectSurface { kind: 'rect'; x1: number; z1: number; x2: number; z2: number; top: number; bottom: number }
@@ -22,6 +25,10 @@ export interface World {
   doors: DoorInst[];
   glass: GlassInst[];
   warnings: string[];
+  /** Outer skins of the exterior walls (0.02 m, just outside the wall face). Rendered by the style layer. */
+  skins: Piece[];
+  /** Colliders added by the active exterior style (ground-level planters, screens). Swapped on style change. */
+  extraObstacles: Obstacle[];
   center: [number, number];
   radius: number;
 }
@@ -87,6 +94,9 @@ export function buildWorld(cfg: HouseConfig): World {
   const ceil = (f: number) => fy(f) + (cfg.floors[f]?.height ?? 3) - S; // underside of the slab above
   const wallBase = (f: number) => (f === 0 ? 0 : fy(f) - S);
   const solid = (p: Piece) => { pieces.push(p); obstacles.push(toObstacle(p)); };
+  // every wall-like piece, so its outside faces can be found once all walls exist
+  const wallPieces: { p: Piece; floor: number }[] = [];
+  const wallSolid = (p: Piece, floor: number) => { solid(p); wallPieces.push({ p, floor }); };
 
   // ---------- floors, plinth, ceilings, roofs ----------
   for (const r of cfg.rooms) {
@@ -146,8 +156,8 @@ export function buildWorld(cfg: HouseConfig): World {
     L.cuts.push(a, b);
     const y = fy(o.floor);
     const top = ceil(o.floor);
-    const fill = (y0: number, y1: number) => { if (y1 - y0 > 0.01) solid(linePiece(axis, a, b, L.c, y0, y1 - y0, T, 'paint')); };
-    if (o.floor === 0 && y > 0.01) pieces.push(linePiece(axis, a, b, L.c, 0, y, T, 'concrete'));
+    const fill = (y0: number, y1: number) => { if (y1 - y0 > 0.01) wallSolid(linePiece(axis, a, b, L.c, y0, y1 - y0, T, 'paint'), o.floor); };
+    if (o.floor === 0 && y > 0.01) { const pl = linePiece(axis, a, b, L.c, 0, y, T, 'concrete'); pieces.push(pl); wallPieces.push({ p: pl, floor: 0 }); }
     switch (o.type) {
       case 'door': {
         const head = o.head ?? 2.1;
@@ -183,7 +193,7 @@ export function buildWorld(cfg: HouseConfig): World {
       const s2 = L.cuts.some((x) => Math.abs(x - s) < 1e-4) ? s : s - T / 2;
       const e2 = L.cuts.some((x) => Math.abs(x - e) < 1e-4) ? e : e + T / 2;
       const base = wallBase(L.floor);
-      solid(linePiece(L.axis, s2, e2, L.c, base, ceil(L.floor) - base, T, 'paint'));
+      wallSolid(linePiece(L.axis, s2, e2, L.c, base, ceil(L.floor) - base, T, 'paint'), L.floor);
     }
   });
 
@@ -203,7 +213,8 @@ export function buildWorld(cfg: HouseConfig): World {
     if (material === 'glass') {
       glass.push({ axis, a, b, c, y0: y, y1: y + h, t });
       obstacles.push(toObstacle({ ...p, w: Math.max(p.w, 0.1), d: Math.max(p.d, 0.1) }));
-    } else solid(p);
+    } else if (material === 'paint') wallSolid(p, f);
+    else solid(p);
   }
 
   // ---------- stairs ----------
@@ -238,7 +249,7 @@ export function buildWorld(cfg: HouseConfig): World {
     const { x1, z1, x2, z2 } = cfg.plot;
     const h = cfg.plot.wallHeight ?? 1.5;
     const mat = cfg.plot.material ?? 'paintGrey';
-    const add = (axis: 'x' | 'z', a: number, b: number, c: number) => { if (b - a > 0.05) solid(linePiece(axis, a, b, c, 0, h, 0.2, mat)); };
+    const add = (axis: 'x' | 'z', a: number, b: number, c: number) => { if (b - a > 0.05) solid({ ...linePiece(axis, a, b, c, 0, h, 0.2, mat), role: 'compoundWall' }); };
     add('x', x1, x2, z1);
     add('z', z1, z2, x1);
     add('z', z1, z2, x2);
@@ -266,7 +277,52 @@ export function buildWorld(cfg: HouseConfig): World {
   const center: [number, number] = [(minX + maxX) / 2, (minZ + maxZ) / 2];
   const radius = Math.hypot(maxX - minX, maxZ - minZ) / 2;
 
-  return { cfg, pieces, obstacles, surfaces, doors, glass, warnings, center, radius };
+  const skins = buildSkins(cfg, wallPieces);
+  return { cfg, pieces, obstacles, surfaces, doors, glass, warnings, center, radius, skins, extraObstacles: [] };
+}
+
+/**
+ * Outer skins: sample each wall piece every 0.4 m, 0.15 m beyond both faces. A side with no indoor
+ * room (on that floor) is exterior and gets a 0.02 m skin just outside its face, which the style
+ * paints (role wallMain, or plinth below the ground-floor level). Inside faces stay white paint.
+ */
+function buildSkins(cfg: HouseConfig, wallPieces: { p: Piece; floor: number }[]): Piece[] {
+  const S = 0.02, STEP = 0.4, OUT = 0.15;
+  const gf = cfg.floors[0]?.y ?? 0;
+  const indoor = (floor: number, x: number, z: number) => cfg.rooms.some((r) =>
+    r.floor === floor && (r.kind ?? 'room') !== 'outdoor' && x > r.x1 - 1e-3 && x < r.x2 + 1e-3 && z > r.z1 - 1e-3 && z < r.z2 + 1e-3);
+  const skins: Piece[] = [];
+  for (const { p, floor } of wallPieces) {
+    const alongX = p.w >= p.d;           // the wall runs along x
+    const len = alongX ? p.w : p.d, t = alongX ? p.d : p.w;
+    const a0 = (alongX ? p.x : p.z) - len / 2, c = alongX ? p.z : p.x;
+    const n = Math.max(1, Math.ceil(len / STEP)), step = len / n;
+    for (const side of [1, -1]) {
+      const ext: boolean[] = [];
+      for (let i = 0; i < n; i++) {
+        const a = a0 + (i + 0.5) * step, o = c + side * (t / 2 + OUT);
+        ext.push(!(alongX ? indoor(floor, a, o) : indoor(floor, o, a)));
+      }
+      for (let i = 0; i < n;) {
+        if (!ext[i]) { i++; continue; }
+        let j = i; while (j + 1 < n && ext[j + 1]) j++;
+        // runs that reach the piece's ends grow a little so the skins of a corner overlap
+        const s0 = a0 + i * step - (i === 0 ? S + 0.002 : 0), s1 = a0 + (j + 1) * step + (j === n - 1 ? S + 0.002 : 0);
+        const cc = c + side * (t / 2 + S / 2 + 0.002);
+        const face: Face = alongX ? (side > 0 ? 'front' : 'back') : (side > 0 ? 'right' : 'left');
+        const mk = (y0: number, y1: number, role: Role): Piece => alongX
+          ? { x: (s0 + s1) / 2, z: cc, w: s1 - s0, d: S, y: y0, h: y1 - y0, material: 'paint', uv: 'wall', role, face, floor }
+          : { x: cc, z: (s0 + s1) / 2, w: S, d: s1 - s0, y: y0, h: y1 - y0, material: 'paint', uv: 'wall', role, face, floor };
+        const y0 = p.y, y1 = p.y + p.h;
+        if (floor === 0 && y0 < gf - 0.01) {
+          skins.push(mk(y0, Math.min(gf, y1), 'plinth'));
+          if (y1 > gf + 0.01) skins.push(mk(gf, y1, 'wallMain'));
+        } else skins.push(mk(y0, y1, 'wallMain'));
+        i = j + 1;
+      }
+    }
+  }
+  return skins;
 }
 
 export function subRect(fl: { x1: number; z1: number; x2: number; z2: number; dir: Flight['dir'] }, t0: number, t1: number): [number, number, number, number] {

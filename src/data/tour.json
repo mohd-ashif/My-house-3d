@@ -1,0 +1,102 @@
+{
+  "speed": 1.9,
+  "wait": 3,
+  "start": { "x": 9.44, "z": 17.0, "yaw": 0 },
+  "stops": [
+    {
+      "title": "Welcome to Ashik's Home",
+      "room": null,
+      "size": "17.04 × 10.20 m plot footprint",
+      "text": "Stone, teak and a terracotta jali under the overhanging roofs.",
+      "path": [[9.44, 15.2]],
+      "look": [9.44, 4.0, 8.4]
+    },
+    {
+      "title": "Sit Out",
+      "room": "gf-sitout",
+      "text": "A deep white portal with two rattan chairs beside the teak main door.",
+      "path": [[9.44, 9.25]],
+      "look": [11.09, 1.6, 8.3]
+    },
+    {
+      "title": "Living",
+      "room": "gf-living",
+      "text": "Double-height living: look up at the crystal chandelier in the cutout.",
+      "path": [[11.09, 9.0], [11.09, 7.6], [10.6, 6.9]],
+      "look": [9.68, 5.8, 6.8]
+    },
+    {
+      "title": "Dining",
+      "room": "gf-dining",
+      "text": "Six-seat dining, open to the passage, with the jali screen outside the window.",
+      "path": [[10.7, 5.6], [10.7, 4.0], [6.2, 3.9], [6.1, 4.9]],
+      "look": [4.8, 0.9, 6.4]
+    },
+    {
+      "title": "Kitchen",
+      "room": "gf-kitchen",
+      "text": "L-shaped counter along the window walls, with the work area behind.",
+      "path": [[3.3, 4.2], [3.3, 5.25], [2.0, 5.25], [1.6, 5.9]],
+      "look": [0.6, 1.0, 7.2]
+    },
+    {
+      "title": "Guest Bedroom",
+      "room": "gf-guest",
+      "text": "Bed against the back wall under the window, wardrobe on the right.",
+      "path": [[2.0, 5.25], [3.3, 5.25], [3.3, 4.2], [6.56, 3.9], [6.56, 2.7], [5.9, 2.4]],
+      "look": [4.8, 0.8, 1.0]
+    },
+    {
+      "title": "Passage",
+      "room": "gf-pass",
+      "size": "1.2 m wide",
+      "text": "The 1.2 m passage opens through sliding glass onto the courtyard.",
+      "path": [[6.56, 2.7], [6.56, 3.9], [10.7, 3.85]],
+      "look": [10.7, 1.6, 1.4]
+    },
+    {
+      "title": "Staircase",
+      "room": "gf-stair",
+      "size": "dog-leg stair, 18 risers",
+      "text": "Up the right flight to the landing, then back along the left.",
+      "path": [[8.62, 3.7], [8.62, 0.7], [7.67, 0.7]],
+      "look": [7.67, 3.2, 3.3]
+    },
+    {
+      "title": "First-floor Passage",
+      "room": "ff-pass2",
+      "size": "1.92 m wide",
+      "text": "Overlooks the double-height cutout and the chandelier.",
+      "path": [[7.67, 3.0], [7.67, 3.9], [9.2, 4.55]],
+      "look": [9.68, 4.6, 6.9]
+    },
+    {
+      "title": "Bedroom 1",
+      "room": "ff-bed1",
+      "text": "Headboard under a high window, study desk on the right, wardrobe by the door.",
+      "path": [[7.67, 3.9], [4.45, 3.9], [4.45, 2.6], [4.7, 1.7]],
+      "look": [5.43, 4.3, -0.6]
+    },
+    {
+      "title": "Bedroom 3",
+      "room": "ff-bed3",
+      "text": "Box window to the front, tall wardrobe and a desk, attached toilet behind.",
+      "path": [[4.45, 2.6], [4.45, 3.9], [6.55, 3.95], [6.55, 5.3], [6.4, 6.6], [6.05, 8.8]],
+      "look": [4.75, 4.3, 7.3]
+    },
+    {
+      "title": "Master Bedroom",
+      "room": "ff-mbed",
+      "text": "Walk-in wardrobe and toilet behind, sliding doors out to the balcony.",
+      "path": [[6.4, 6.6], [6.55, 5.3], [6.55, 3.95], [11.7, 3.85], [12.8, 3.85], [13.2, 5.0], [13.2, 6.6]],
+      "look": [14.8, 4.3, 5.2]
+    },
+    {
+      "title": "Balcony",
+      "room": "ff-balcony",
+      "text": "Teak soffit, glass railing and the evening view over the garden.",
+      "path": [[14.1, 7.0], [14.1, 7.55]],
+      "look": [14.1, 3.2, 14.0]
+    }
+  ]
+}

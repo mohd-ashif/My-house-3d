@@ -13,7 +13,11 @@ function rng(seed: number) {
   return () => (s = (s * 16807) % 2147483647) / 2147483647;
 }
 
-function canvasTexture(draw: Draw, seed: number, S = 512): THREE.CanvasTexture {
+/** Texture resolution factor: low-tier devices get half-size canvases. */
+let detail = 1;
+export function setTextureDetail(d: number) { detail = d; }
+
+function canvasTexture(draw: Draw, seed: number, S = Math.round(512 * detail)): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = c.height = S;
   const ctx = c.getContext('2d')!;
@@ -152,6 +156,122 @@ const DRAW: Record<string, Draw> = {
     }
     speckle(ctx, S, r, 9000, '60,55,50', 0.12);
   },
+  exposedConcrete: (ctx, S, r) => {
+    // board-formed concrete: warm light grey, 8 horizontal board marks, tie holes
+    ctx.fillStyle = '#b8b2a9'; ctx.fillRect(0, 0, S, S);
+    const boards = 8;
+    for (let b = 0; b < boards; b++) {
+      ctx.fillStyle = `hsl(35, ${4 + r() * 4}%, ${66 + r() * 7}%)`;
+      ctx.fillRect(0, (b * S) / boards, S, S / boards);
+      for (let g = 0; g < 10; g++) {
+        ctx.strokeStyle = `rgba(90,80,70,${0.04 + r() * 0.06})`; ctx.lineWidth = 0.6 + r() * 1.4;
+        const y = (b * S) / boards + r() * (S / boards);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.bezierCurveTo(S / 3, y + (r() - 0.5) * 4, (2 * S) / 3, y + (r() - 0.5) * 4, S, y); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(70,64,58,.35)'; ctx.fillRect(0, (b * S) / boards, S, 1.5);
+    }
+    speckle(ctx, S, r, 9000, '60,55,50', 0.12, 2);
+    speckle(ctx, S, r, 3000, '255,255,250', 0.12, 2);
+    ctx.fillStyle = 'rgba(60,55,50,.45)';
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { ctx.beginPath(); ctx.arc((i + 0.5) * S / 4, (j + 0.5) * S / 4, S / 140, 0, Math.PI * 2); ctx.fill(); }
+  },
+  laterite: (ctx, S, r) => {
+    // laterite blocks: warm orange-red, porous, staggered 2:1 courses
+    ctx.fillStyle = '#7c3a24'; ctx.fillRect(0, 0, S, S);
+    const rows = 8, cols = 4, bh = S / rows, bw = S / cols;
+    for (let j = 0; j < rows; j++) for (let i = -1; i < cols; i++) {
+      const x = i * bw + (j % 2 ? bw / 2 : 0);
+      ctx.fillStyle = `hsl(${12 + r() * 10}, ${48 + r() * 14}%, ${38 + r() * 10}%)`;
+      ctx.fillRect(x + 2, j * bh + 2, bw - 4, bh - 4);
+      for (let k = 0; k < 60; k++) {
+        ctx.fillStyle = `rgba(${40 + r() * 30},${15 + r() * 10},8,${0.25 + r() * 0.4})`;
+        ctx.beginPath(); ctx.arc(x + 2 + r() * (bw - 4), j * bh + 2 + r() * (bh - 4), 0.6 + r() * 2.2, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    speckle(ctx, S, r, 5000, '230,170,120', 0.12, 2);
+  },
+  darkGranite: (ctx, S, r) => {
+    ctx.fillStyle = '#2b2b2d'; ctx.fillRect(0, 0, S, S);
+    speckle(ctx, S, r, 22000, '150,150,155', 0.22, 2);
+    speckle(ctx, S, r, 8000, '10,10,12', 0.4, 2);
+    ctx.strokeStyle = '#1c1c1e'; ctx.lineWidth = 2;
+    for (const p of [0, S / 2]) { ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(S, p); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(S / 2, 0); ctx.lineTo(S / 2, S); ctx.stroke();
+  },
+  clayTile: (ctx, S, r) => {
+    // Mangalore clay tiles: rows of curved tiles, each with its own tone, shaded for curvature
+    ctx.fillStyle = '#5a2414'; ctx.fillRect(0, 0, S, S);
+    const rows = 6, cols = 5, th = S / rows, tw = S / cols;
+    for (let j = 0; j < rows; j++) for (let i = -1; i <= cols; i++) {
+      const x = i * tw + (j % 2 ? tw / 2 : 0), y = j * th;
+      const hue = 10 + r() * 10, sat = 55 + r() * 15, lit = 42 + r() * 10;
+      const g = ctx.createLinearGradient(x, 0, x + tw, 0);
+      g.addColorStop(0, `hsl(${hue},${sat}%,${lit - 14}%)`);
+      g.addColorStop(0.35, `hsl(${hue},${sat}%,${lit + 6}%)`);
+      g.addColorStop(0.7, `hsl(${hue},${sat}%,${lit}%)`);
+      g.addColorStop(1, `hsl(${hue},${sat}%,${lit - 18}%)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(x + 1, y + 2);
+      ctx.lineTo(x + tw - 1, y + 2);
+      ctx.quadraticCurveTo(x + tw - 1, y + th + 4, x + tw / 2, y + th + 6); // rounded lower lip
+      ctx.quadraticCurveTo(x + 1, y + th + 4, x + 1, y + 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(30,8,0,.35)'; ctx.fillRect(x, y + th + 2, tw, 3); // shadow line under the lip
+    }
+    speckle(ctx, S, r, 4000, '40,15,5', 0.2, 2);
+  },
+  breezeBlock: (ctx, S) => {
+    // white concrete breeze blocks: 2 x 2 blocks, each with a square-cross pattern of openings
+    ctx.fillStyle = '#ecebe6'; ctx.fillRect(0, 0, S, S);
+    const n = 2, b = S / n, u = b / 8;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const x = i * b, y = j * b;
+      for (const [cx, cy] of [[1, 1], [5, 1], [1, 5], [5, 5]]) ctx.clearRect(x + cx * u, y + cy * u, 2 * u, 2 * u);
+      ctx.clearRect(x + 3.5 * u, y + 1 * u, u, 2 * u); ctx.clearRect(x + 3.5 * u, y + 5 * u, u, 2 * u);
+      ctx.clearRect(x + 1 * u, y + 3.5 * u, 2 * u, u); ctx.clearRect(x + 5 * u, y + 3.5 * u, 2 * u, u);
+      ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(x, y, b, 2); ctx.fillRect(x, y, 2, b);
+    }
+  },
+  perforatedTerracotta: (ctx, S, r) => {
+    // terracotta perforated metal: dot grid (transparent dots)
+    ctx.fillStyle = '#b4532f'; ctx.fillRect(0, 0, S, S);
+    speckle(ctx, S, r, 3000, '90,30,10', 0.15, 2);
+    const n = 16, step = S / n;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      ctx.save(); ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath(); ctx.arc((i + 0.5) * step, (j + 0.5) * step, step * 0.26, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+  },
+  timberSoffit: (ctx, S, r) => {
+    // warm timber planks running one way, thin dark joints
+    const n = 10;
+    for (let k = 0; k < n; k++) {
+      ctx.fillStyle = `hsl(${28 + r() * 6}, ${45 + r() * 10}%, ${46 + r() * 10}%)`;
+      ctx.fillRect(0, (k * S) / n, S, S / n);
+      for (let g = 0; g < 12; g++) {
+        ctx.strokeStyle = `rgba(70,35,10,${0.06 + r() * 0.08})`; ctx.lineWidth = 0.6 + r();
+        const y = (k * S) / n + r() * (S / n);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(S, y + (r() - 0.5) * 3); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(40,20,5,.55)'; ctx.fillRect(0, (k * S) / n, S, 2);
+    }
+  },
+  lightStone: (ctx, S, r) => {
+    ctx.fillStyle = '#c9c5bd'; ctx.fillRect(0, 0, S, S);
+    speckle(ctx, S, r, 12000, '110,105,100', 0.14, 2);
+    ctx.strokeStyle = 'rgba(120,115,108,.6)'; ctx.lineWidth = 2;
+    for (const p of [0, S / 2]) { ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(S, p); ctx.stroke(); ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, S); ctx.stroke(); }
+  },
+  roofDark: (ctx, S, r) => {
+    ctx.fillStyle = '#4b4c4f'; ctx.fillRect(0, 0, S, S);
+    speckle(ctx, S, r, 14000, '30,30,32', 0.22, 2);
+    speckle(ctx, S, r, 5000, '140,140,145', 0.12, 2);
+  },
+  road: (ctx, S, r) => {
+    ctx.fillStyle = '#2e3033'; ctx.fillRect(0, 0, S, S);
+    speckle(ctx, S, r, 20000, '120,120,125', 0.18, 2);
+  },
   plaster: (ctx, S, r) => {
     ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, S, S);
     speckle(ctx, S, r, 9000, '0,0,0', 0.035, 3);
@@ -217,6 +337,19 @@ const DEFS: Record<MaterialName, Def> = {
   stoneTile: { color: '#ffffff', rough: 0.7, tex: 'stoneTile', size: 1.2 },
   jali: { color: '#ffffff', rough: 0.8, tex: 'jali', size: 0.6 },
   paverGrass: { color: '#ffffff', rough: 0.8, tex: 'paverGrass', size: 1.6 },
+  exposedConcrete: { color: '#ffffff', rough: 0.85, tex: 'exposedConcrete', size: 2.4 },
+  laterite: { color: '#ffffff', rough: 0.95, tex: 'laterite', size: 1.6 },
+  darkGranite: { color: '#ffffff', rough: 0.35, tex: 'darkGranite', size: 1.4 },
+  clayTile: { color: '#ffffff', rough: 0.75, tex: 'clayTile', size: 1.5 },
+  breezeBlock: { color: '#ffffff', rough: 0.9, tex: 'breezeBlock', size: 0.8 },
+  perforatedTerracotta: { color: '#ffffff', rough: 0.55, metal: 0.4, tex: 'perforatedTerracotta', size: 0.8 },
+  charcoalPaint: { color: '#5b5d61', rough: 0.95, tex: 'plaster', size: 2 },
+  timberSoffit: { color: '#ffffff', rough: 0.6, tex: 'timberSoffit', size: 1.6 },
+  copper: { color: '#b8733f', rough: 0.35, metal: 1 },
+  sheer: { color: '#fbf6ee', rough: 0.9, emissive: '#fff1dc', emissiveIntensity: 0.25 },
+  lightStone: { color: '#ffffff', rough: 0.6, tex: 'lightStone', size: 1.2 },
+  roofDark: { color: '#ffffff', rough: 0.8, tex: 'roofDark', size: 2 },
+  road: { color: '#ffffff', rough: 0.4, tex: 'road', size: 4 },
 };
 
 const baseTextures = new Map<string, THREE.CanvasTexture>();
@@ -241,10 +374,14 @@ export function getMaterial(name: MaterialName, repeatX = 1, repeatY = 1): THREE
       color: def.color, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.22,
       envMapIntensity: 1.6, clearcoat: 1, depthWrite: false, side: THREE.DoubleSide,
     });
-  } else if (name === 'jali') {
-    const t = baseTexture('jali').clone();
+  } else if (name === 'sheer') {
+    m = new THREE.MeshStandardMaterial({ color: def.color, roughness: def.rough, transparent: true, opacity: 0.72,
+      emissive: new THREE.Color(def.emissive), emissiveIntensity: def.emissiveIntensity, side: THREE.DoubleSide, depthWrite: false });
+  } else if (name === 'jali' || name === 'breezeBlock' || name === 'perforatedTerracotta') {
+    // see-through lattices: the canvas alpha cuts the openings
+    const t = baseTexture(def.tex!).clone();
     t.repeat.set(rx, ry); t.needsUpdate = true;
-    m = new THREE.MeshStandardMaterial({ map: t, roughness: def.rough, alphaTest: 0.5, side: THREE.DoubleSide });
+    m = new THREE.MeshStandardMaterial({ map: t, roughness: def.rough, metalness: def.metal ?? 0, alphaTest: 0.5, side: THREE.DoubleSide });
   } else if (name === 'water') {
     m = new THREE.MeshPhysicalMaterial({ color: def.color, roughness: 0.05, transparent: true, opacity: 0.8, clearcoat: 1 });
   } else {
@@ -268,6 +405,20 @@ export function materialForPiece(p: Piece): THREE.Material {
   const size = def.size ?? 1;
   if (p.uv === 'floor') return getMaterial(p.material, p.w / size, p.d / size);
   return getMaterial(p.material, Math.max(p.w, p.d) / size, p.h / size);
+}
+
+/** Real-world size (m) one texture tile covers, or 0 for untextured materials. */
+export function texSize(name: MaterialName): number {
+  const def = DEFS[name];
+  return def?.tex ? def.size ?? 1 : 0;
+}
+
+/** Texture repeat a piece gets (same rule as materialForPiece), or null for untextured materials. */
+export function pieceRepeat(p: Piece): [number, number] | null {
+  const def = DEFS[p.material];
+  if (!def?.tex) return null;
+  const size = def.size ?? 1;
+  return p.uv === 'floor' ? [p.w / size, p.d / size] : [Math.max(p.w, p.d) / size, p.h / size];
 }
 
 /** Night mode dims the emissive lamps' surroundings; lamps glow brighter. */

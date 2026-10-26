@@ -1,16 +1,32 @@
 'use client';
 import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { AdaptiveDpr, useProgress } from '@react-three/drei';
+import { AdaptiveDpr, PerformanceMonitor } from '@react-three/drei';
 import * as THREE from 'three';
 import houseJson from '@/data/house.json';
-import type { HouseConfig } from '@/lib/types';
-import { buildWorld, type World } from '@/lib/world';
+import type { HouseConfig, Room } from '@/lib/types';
+import { buildWorld } from '@/lib/world';
 import { groundHeight } from '@/lib/physics';
-import { player, keys, teleport, look } from '@/lib/player';
+import { player, keys, teleport, look, stopAuto, cinematic } from '@/lib/player';
+import { STYLES, styleById, initialStyle, rememberStyle, nextStyle } from '@/lib/styles';
+import { setTextureDetail } from '@/lib/materials';
+import { roomAt } from '@/lib/physics';
+import { sceneRefs } from '@/lib/pick';
 import { shot } from '@/lib/shot';
+import { freeSpot } from '@/lib/nav';
+import { doorEvents } from '@/lib/events';
+import { setSound, doorCreak, uiClick } from '@/lib/sound';
+import {
+  detectTier, isCoarsePointer, fullscreenAvailable, isFullscreen, enterFullscreen, exitFullscreen, lockLandscape, haptic, storage, type Tier,
+} from '@/lib/device';
 import Scene, { type Quality } from './Scene';
 import type { HudInfo, ViewMode } from './Player';
+import { useTour, stopSize } from './useTour';
+import DesktopHud from './ui/DesktopHud';
+import MobileHud, { RotateHint, type MobileSettings } from './ui/MobileHud';
+import TouchControls from './ui/TouchControls';
+import { Loader, NoWebGL, ContextLost, Onboarding, TourCard, Intro } from './ui/Overlays';
+import { DesignPanel, Toast } from './ui/Design';
 
 const cfg = houseJson as unknown as HouseConfig;
 
@@ -19,20 +35,6 @@ function hasWebGL() {
     const c = document.createElement('canvas');
     return !!(c.getContext('webgl2') || c.getContext('webgl'));
   } catch { return false; }
-}
-
-const storage = {
-  get(k: string) { try { return window.localStorage.getItem(k); } catch { return null; } },
-  set(k: string, v: string) { try { window.localStorage.setItem(k, v); } catch { /* private mode */ } },
-};
-
-function NoWebGL() {
-  return (
-    <div className="fatal">
-      <h1>Your browser can&apos;t show 3D</h1>
-      <p>This walkthrough needs WebGL. Try an up-to-date Chrome, Edge, Safari or Firefox, and check that hardware acceleration is turned on.</p>
-    </div>
-  );
 }
 
 class SceneErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -49,153 +51,137 @@ function FirstFrames({ onReady }: { onReady: () => void }) {
   return null;
 }
 
-function Loader({ ready }: { ready: boolean }) {
-  const { progress, active } = useProgress();
-  const [gone, setGone] = useState(false);
-  const done = ready && !active;
-  useEffect(() => {
-    if (!done) return;
-    const t = setTimeout(() => setGone(true), 450);
-    return () => clearTimeout(t);
-  }, [done]);
-  if (gone) return null;
-  const pct = done ? 100 : Math.min(90, Math.max(12, progress * 0.9));
-  return (
-    <div className={`loader${done ? ' done' : ''}`}>
-      <span>Building the house…</span>
-      <div className="bar"><i style={{ width: `${pct}%` }} /></div>
-    </div>
-  );
-}
-
-function TouchTutorial({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="tutorial" onClick={onClose}>
-      <div>
-        <h2>How to walk around</h2>
-        <p><b>Left thumb:</b> drag the circle to walk.</p>
-        <p><b>Right side:</b> drag to look around.</p>
-        <p><b>Go to room…</b> at the top jumps straight to any room.</p>
-        <button className="btn primary" onClick={onClose}>Got it</button>
-      </div>
-    </div>
-  );
-}
-
-function Minimap({ world, floor }: { world: World; floor: number }) {
-  const dot = useRef<SVGGElement>(null);
-  const rooms = world.cfg.rooms.filter((r) => r.floor === floor);
-  const all = world.cfg.rooms;
-  const pl = world.cfg.plot;
-  const minX = Math.min(...all.map((r) => r.x1), pl?.x1 ?? Infinity) - 0.5, maxX = Math.max(...all.map((r) => r.x2), pl?.x2 ?? -Infinity) + 0.5;
-  const minZ = Math.min(...all.map((r) => r.z1), pl?.z1 ?? Infinity) - 0.5, maxZ = Math.max(...all.map((r) => r.z2), pl?.z2 ?? -Infinity) + 0.5;
-  useEffect(() => {
-    let raf = 0;
-    const tick = () => {
-      if (dot.current) dot.current.setAttribute('transform', `translate(${player.x} ${player.z}) rotate(${(-player.yaw * 180) / Math.PI})`);
-      raf = requestAnimationFrame(tick);
-    };
-    tick();
-    return () => cancelAnimationFrame(raf);
-  }, []);
-  return (
-    <div className="minimap">
-      <svg viewBox={`${minX} ${minZ} ${maxX - minX} ${maxZ - minZ}`}>
-        {rooms.map((r) => {
-          const kind = r.kind ?? 'room';
-          return (
-            <g key={r.id}>
-              <rect x={r.x1} y={r.z1} width={r.x2 - r.x1} height={r.z2 - r.z1}
-                fill={kind === 'void' ? 'none' : kind === 'outdoor' ? 'rgba(120,170,110,.35)' : 'rgba(255,255,255,.14)'}
-                stroke="rgba(255,255,255,.7)" strokeWidth={0.08} strokeDasharray={kind === 'void' ? '0.3 0.2' : undefined} />
-              {(r.x2 - r.x1) > 1.6 && (
-                <text x={(r.x1 + r.x2) / 2} y={(r.z1 + r.z2) / 2} fontSize={0.55} fill="rgba(255,255,255,.85)" textAnchor="middle" dominantBaseline="middle">
-                  {r.name.length > 12 ? r.name.slice(0, 11) + '…' : r.name}
-                </text>
-              )}
-            </g>
-          );
-        })}
-        {pl && <rect x={pl.x1} y={pl.z1} width={pl.x2 - pl.x1} height={pl.z2 - pl.z1} fill="none" stroke="rgba(255,255,255,.35)" strokeWidth={0.1} />}
-        <g ref={dot}>
-          <circle r={0.35} fill="#ffcf5a" />
-          <path d="M0 -0.9 L0.35 -0.2 L-0.35 -0.2 Z" fill="#ffcf5a" />
-        </g>
-      </svg>
-    </div>
-  );
-}
-
-function TouchControls() {
-  const joy = useRef<HTMLDivElement>(null);
-  const knob = useRef<HTMLElement>(null);
-  const start = useRef<{ x: number; y: number; id: number } | null>(null);
-  const lookStart = useRef<{ x: number; y: number; id: number } | null>(null);
-  const setKnob = (dx: number, dy: number) => { if (knob.current) knob.current.style.transform = `translate(${dx}px, ${dy}px)`; };
-  return (
-    <>
-      <div className="lookpad"
-        onTouchStart={(e) => { const t = e.changedTouches[0]; lookStart.current = { x: t.clientX, y: t.clientY, id: t.identifier }; }}
-        onTouchMove={(e) => {
-          for (const t of Array.from(e.changedTouches)) {
-            if (lookStart.current && t.identifier === lookStart.current.id) {
-              look((t.clientX - lookStart.current.x) * 1.6, (t.clientY - lookStart.current.y) * 1.6);
-              lookStart.current = { x: t.clientX, y: t.clientY, id: t.identifier };
-            }
-          }
-        }}
-        onTouchEnd={() => { lookStart.current = null; }} />
-      <div className="joy" ref={joy}
-        onTouchStart={(e) => { const t = e.changedTouches[0]; start.current = { x: t.clientX, y: t.clientY, id: t.identifier }; }}
-        onTouchMove={(e) => {
-          for (const t of Array.from(e.changedTouches)) {
-            if (!start.current || t.identifier !== start.current.id) continue;
-            let dx = t.clientX - start.current.x, dy = t.clientY - start.current.y;
-            const d = Math.hypot(dx, dy), max = 45;
-            if (d > max) { dx = (dx / d) * max; dy = (dy / d) * max; }
-            setKnob(dx, dy);
-            player.joy.x = dx / max; player.joy.y = dy / max;
-          }
-        }}
-        onTouchEnd={() => { start.current = null; setKnob(0, 0); player.joy.x = 0; player.joy.y = 0; }}>
-        <i ref={knob} />
-      </div>
-    </>
-  );
-}
-
 export default function App() {
   const [webgl] = useState(() => hasWebGL());
   return webgl ? <SceneErrorBoundary><Walkthrough /></SceneErrorBoundary> : <NoWebGL />;
 }
 
+const DEFAULT_SETTINGS = (mobile: boolean): MobileSettings => ({ sound: false, gyro: false, headBob: mobile });
+
 function Walkthrough() {
   const world = useMemo(() => buildWorld(cfg), []);
+  const [mobile, setMobile] = useState(() => isCoarsePointer());
   const [entered, setEntered] = useState(false);
   const [ready, setReady] = useState(false);
-  const [tutorial, setTutorial] = useState(false);
   const [view, setView] = useState<ViewMode>('third');
   const [night, setNight] = useState(false);
   const [quality, setQuality] = useState<Quality>(() =>
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('q') === 'low' ? 'low' : 'high');
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('q') === 'low' ? 'low' : 'auto');
+  const [autoTier, setAutoTier] = useState<Tier>(() => {
+    const t = detectTier();
+    setTextureDetail(t === 'low' ? 0.5 : 1); // low-tier phones get half-size procedural textures
+    return t;
+  });
+  const tier: Tier = quality === 'auto' ? autoTier : quality === 'high' ? 'high' : 'low';
   const [hud, setHud] = useState<HudInfo>({ room: '', floor: 0 });
   const [locked, setLocked] = useState(false);
+  const [menuOpen, setMenu] = useState(false);
+  const [mapOpen, setMap] = useState(false);
+  const [onboarding, setOnboarding] = useState(false);
+  const [rotateDismissed, setRotateDismissed] = useState(false);
+  const [portrait, setPortrait] = useState(() => typeof window !== 'undefined' && window.innerHeight > window.innerWidth);
+  const [fs, setFs] = useState(false);
+  const [fsOk] = useState(() => fullscreenAvailable());
+  const [lost, setLost] = useState(false);
+  const [frameloop, setFrameloop] = useState<'always' | 'demand'>('always');
+  const [settings, setSettings] = useState<MobileSettings>(() => {
+    const base = DEFAULT_SETTINGS(isCoarsePointer());
+    try { return { ...base, ...JSON.parse(storage.get('house-settings') ?? '{}'), gyro: false }; } catch { return base; }
+  });
   const canvasEl = useRef<HTMLCanvasElement | null>(null);
-  const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  const pendingTour = useRef(false);
+  // ---------- exterior design ----------
+  const [styleId, setStyleId] = useState<string>(() => initialStyle());
+  const [designOpen, setDesignOpen] = useState(false);
+  const [toast, setToast] = useState({ text: '', stamp: 0 });
+  const [thumbs, setThumbs] = useState<Record<string, string>>(() => {
+    const t: Record<string, string> = {};
+    for (const st of STYLES) { const v = storage.get(`house-thumb-v1-${st.id}`); if (v) t[st.id] = v; }
+    return t;
+  });
+  const tour = useTour(world);
+  const tourRef = useRef(tour); tourRef.current = tour;
+
+  const selectStyle = useCallback((id: string) => {
+    if (id === styleRef.current) return;
+    setStyleId(id);
+    rememberStyle(id);
+    const st = styleById(id);
+    setToast({ text: `${st.name} · ${st.subtitle}`, stamp: Date.now() });
+    // outside (or on the intro) the camera flies out to the new design's hero shot; inside, only the façade swaps
+    const { room } = roomAt(world, player.x, player.z, player.feet);
+    if (enteredRef.current && (!room || (room.kind ?? 'room') === 'outdoor')) cinematic.remaining = 2.6;
+  }, [world]);
+  const styleRef = useRef(styleId); styleRef.current = styleId;
+  const enteredRef = useRef(entered); enteredRef.current = entered;
+  const selectRef = useRef(selectStyle); selectRef.current = selectStyle;
+
+  // thumbnails: rendered offscreen once per design, kept in localStorage
+  const wantThumbs = ready && (designOpen || menuOpen || (!entered && tier !== 'low'));
+  const thumbQueue = useMemo(() => (wantThumbs ? STYLES.map((st) => st.id).filter((id) => !thumbs[id]) : []), [wantThumbs, thumbs]);
+  const onThumb = useCallback((id: string, url: string) => {
+    storage.set(`house-thumb-v1-${id}`, url);
+    setThumbs((t) => ({ ...t, [id]: url }));
+  }, []);
 
   useEffect(() => {
     if (world.warnings.length) console.warn('[house.json]', world.warnings);
     // handy for debugging in the browser console: __house.player, __house.world
-    (window as unknown as { __house: unknown }).__house = { player, world };
+    const w = window as unknown as { __house?: Record<string, unknown> };
+    w.__house = Object.assign(w.__house ?? {}, { player, world, cinematic, sceneRefs });
     const { x, z, yaw } = cfg.spawn;
     teleport(x, z, groundHeight(world, x, z, 0.6), yaw ?? 0);
   }, [world]);
 
+  // ---------- device / page wiring ----------
   useEffect(() => {
+    const mq = window.matchMedia('(pointer: coarse)');
+    const onMq = () => setMobile(mq.matches);
+    const onResize = () => setPortrait(window.innerHeight > window.innerWidth);
+    const onFs = () => setFs(isFullscreen());
+    const onVis = () => setFrameloop(document.hidden ? 'demand' : 'always'); // stop rendering in background tabs
+    const noGesture = (e: Event) => e.preventDefault(); // iOS pinch-zoom of the page
+    mq.addEventListener?.('change', onMq);
+    window.addEventListener('resize', onResize);
+    document.addEventListener('fullscreenchange', onFs);
+    document.addEventListener('webkitfullscreenchange', onFs);
+    document.addEventListener('visibilitychange', onVis);
+    document.addEventListener('gesturestart', noGesture, { passive: false } as AddEventListenerOptions);
+    return () => {
+      mq.removeEventListener?.('change', onMq);
+      window.removeEventListener('resize', onResize);
+      document.removeEventListener('fullscreenchange', onFs);
+      document.removeEventListener('webkitfullscreenchange', onFs);
+      document.removeEventListener('visibilitychange', onVis);
+      document.removeEventListener('gesturestart', noGesture);
+    };
+  }, []);
+
+  useEffect(() => {
+    player.headBob = settings.headBob;
+    setSound(settings.sound);
+    storage.set('house-settings', JSON.stringify({ sound: settings.sound, headBob: settings.headBob }));
+  }, [settings]);
+
+  // doors: creak + a tap of haptics
+  useEffect(() => doorEvents.on(() => { doorCreak(); if (mobile) haptic(10); }), [mobile]);
+  // a new room: haptic tick
+  const lastRoom = useRef('');
+  useEffect(() => {
+    const key = `${hud.room}|${hud.floor}`;
+    if (entered && mobile && lastRoom.current && key !== lastRoom.current) haptic(10);
+    lastRoom.current = key;
+  }, [hud, entered, mobile]);
+
+  // ---------- keyboard + mouse (desktop, unchanged) ----------
+  useEffect(() => {
+    const MOVE = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
     const down = (e: KeyboardEvent) => {
       keys.add(e.code);
+      if (MOVE.has(e.code)) tourRef.current.pause(); // walking yourself pauses the guided tour
       if (e.code === 'KeyC') setView((v) => (v === 'first' ? 'third' : 'first'));
       if (e.code === 'KeyN') setNight((n) => !n);
+      if (e.code === 'KeyV' && !e.repeat) selectRef.current(nextStyle(styleRef.current)); // V cycles designs
       if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
     };
     const up = (e: KeyboardEvent) => keys.delete(e.code);
@@ -216,97 +202,157 @@ function Walkthrough() {
     };
   }, []);
 
+  // ---------- gyroscope look (opt-in) ----------
+  useEffect(() => {
+    if (!settings.gyro) return;
+    let last: { a: number; b: number; g: number } | null = null;
+    const onOri = (e: DeviceOrientationEvent) => {
+      if (e.alpha == null || e.beta == null || e.gamma == null) return;
+      const cur = { a: e.alpha, b: e.beta, g: e.gamma };
+      if (last) {
+        const d = (x: number) => ((x + 540) % 360) - 180;
+        const landscape = Math.abs((screen.orientation?.angle ?? 0) % 180) === 90;
+        player.yaw += (d(cur.a - last.a) * Math.PI) / 180;
+        const tilt = landscape ? -(cur.g - last.g) * Math.sign(screen.orientation?.angle || 90) : cur.b - last.b;
+        player.pitch = Math.max(-1.35, Math.min(1.35, player.pitch + (tilt * Math.PI) / 180));
+      }
+      last = cur;
+    };
+    window.addEventListener('deviceorientation', onOri);
+    return () => window.removeEventListener('deviceorientation', onOri);
+  }, [settings.gyro]);
+
   const requestLock = useCallback(() => {
-    if (isTouch || !canvasEl.current) return;
+    if (mobile || !canvasEl.current) return;
     try {
       const r = canvasEl.current.requestPointerLock() as unknown;
       if (r && typeof (r as Promise<void>).catch === 'function') (r as Promise<void>).catch(() => {});
     } catch { /* ignored */ }
-  }, [isTouch]);
+  }, [mobile]);
+
+  const press = (fn: () => void) => () => { if (mobile) haptic(8); uiClick(); fn(); };
 
   const toSpawn = () => {
     const { x, z, yaw } = cfg.spawn;
     teleport(x, z, groundHeight(world, x, z, 0.6), yaw ?? 0);
   };
 
-  const enter = () => {
+  const enter = (mode: 'free' | 'tour') => {
+    if (mobile) { void enterFullscreen().then(lockLandscape); haptic(10); }
     toSpawn();
     setEntered(true);
     requestLock();
-    if (isTouch && !storage.get('house-tutorial-seen')) setTutorial(true);
+    const firstTime = mobile && !storage.get('house-onboarding-seen');
+    if (firstTime) setOnboarding(true);
+    if (mode === 'tour') { if (firstTime) pendingTour.current = true; else tour.start(); }
+  };
+
+  const closeOnboarding = () => {
+    storage.set('house-onboarding-seen', '1');
+    setOnboarding(false);
+    if (pendingTour.current) { pendingTour.current = false; tour.start(); }
   };
 
   const exit = () => {
     if (document.pointerLockElement) document.exitPointerLock();
     keys.clear();
+    tour.exit();
+    setMenu(false); setMap(false);
     setEntered(false);
   };
 
-  const closeTutorial = () => { storage.set('house-tutorial-seen', '1'); setTutorial(false); };
-
+  const goRoom = (r: Room) => {
+    tour.pause();
+    stopAuto();
+    const level = cfg.floors[r.floor].y;
+    const [x, z] = freeSpot(world, (r.x1 + r.x2) / 2, (r.z1 + r.z2) / 2, level);
+    teleport(x, z, level);
+  };
   const goTo = (id: string) => {
-    if (id === '__outside') { toSpawn(); return; }
+    if (id === '__outside') { tour.pause(); toSpawn(); return; }
     const r = cfg.rooms.find((q) => q.id === id);
-    if (!r) return;
-    teleport((r.x1 + r.x2) / 2, (r.z1 + r.z2) / 2, cfg.floors[r.floor].y);
+    if (r) goRoom(r);
   };
 
+  const toggleFs = () => { if (isFullscreen()) void exitFullscreen(); else void enterFullscreen().then(lockLandscape); };
+  const toggleSetting = async (k: keyof MobileSettings) => {
+    if (k === 'gyro' && !settings.gyro) {
+      // iOS asks for motion permission, and only from a tap
+      const DOE = (window as unknown as { DeviceOrientationEvent?: { requestPermission?: () => Promise<string> } }).DeviceOrientationEvent;
+      try { if (DOE?.requestPermission && (await DOE.requestPermission()) !== 'granted') return; } catch { return; }
+    }
+    setSettings((s) => ({ ...s, [k]: !s[k] }));
+  };
+
+  const stopInfo = tour.state.active ? tour.stop : null;
+
   return (
-    <div className="root">
+    <div className={`root${mobile ? ' is-touch' : ''}`} data-tier={tier} data-quality={quality} onContextMenu={mobile ? (e) => e.preventDefault() : undefined}>
       <Canvas
-        shadows={quality === 'high'}
-        dpr={[1, quality === 'high' ? 2 : 1.25]}
+        frameloop={frameloop}
+        shadows={tier !== 'low'}
+        dpr={tier === 'high' ? [1, 2] : tier === 'mid' ? [1, 1.5] : 1}
         camera={{ fov: 62, near: 0.05, far: 400, position: [world.center[0] + 25, 15, world.center[1] + 25] }}
-        gl={{ antialias: quality !== 'high', powerPreference: 'high-performance' }}
+        gl={{ antialias: tier !== 'high', powerPreference: 'high-performance' }}
         onCreated={({ gl }) => {
           canvasEl.current = gl.domElement;
+          const w = window as unknown as { __house?: Record<string, unknown> };
+          w.__house = Object.assign(w.__house ?? {}, { gl }); // debug: __house.gl.info.render
           if (shot?.cut != null) gl.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, -1, 0), shot.cut)];
+          gl.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); setLost(true); });
         }}
         onClick={() => { if (entered) requestLock(); }}
       >
+        {quality === 'auto' && (
+          <PerformanceMonitor ms={250} iterations={8} bounds={() => [30, 1000]} flipflops={2}
+            onDecline={() => setAutoTier((t) => (t === 'high' ? 'mid' : 'low'))} />
+        )}
         <Suspense fallback={null}>
-          <Scene world={world} entered={entered} view={view} night={night} quality={quality} onHud={setHud} />
+          <Scene world={world} entered={entered} view={view} night={night} tier={tier} mobile={mobile} onHud={setHud}
+            styleId={styleId} thumbQueue={thumbQueue} onThumb={onThumb} />
           <FirstFrames onReady={() => setReady(true)} />
         </Suspense>
         <AdaptiveDpr pixelated />
       </Canvas>
 
       <Loader ready={ready} />
+      <Toast text={toast.text} stamp={toast.stamp} />
+      {lost && <ContextLost />}
       {shot ? null : !entered ? (
-        <div className="intro">
-          <h1>{cfg.name}</h1>
-          <p>Walk through every room in 3D. Ground floor, first floor, the stairs, the courtyard: everything is built from the architect&apos;s plan.</p>
-          <button className="btn primary" onClick={enter} disabled={!ready}>{ready ? 'Enter the house' : 'Loading…'}</button>
-        </div>
+        <Intro name={cfg.name} ready={ready} mobile={mobile} onTour={() => enter('tour')} onFree={() => enter('free')}
+          styles={STYLES} styleId={styleId} thumbs={thumbs} onStyle={selectStyle} />
       ) : (
         <>
-          <div className="hud-top">
-            <div className="room">
-              <span>{cfg.floors[hud.floor]?.name ?? ''}</span>
-              <b>{hud.room}</b>
-            </div>
-            <div className="controls">
-              <select value="" onChange={(e) => goTo(e.target.value)} aria-label="Teleport to a room">
-                <option value="" disabled>Go to room…</option>
-                <option value="__outside">Outside: front gate</option>
-                {cfg.rooms.filter((r) => (r.kind ?? 'room') !== 'void' && r.menu !== false).map((r) => (
-                  <option key={r.id} value={r.id}>{cfg.floors[r.floor]?.name}: {r.name}</option>
-                ))}
-              </select>
-              <button className="btn" onClick={() => setView((v) => (v === 'first' ? 'third' : 'first'))}>{view === 'first' ? '3rd person' : '1st person'} (C)</button>
-              <button className="btn" onClick={() => setNight((n) => !n)}>{night ? 'Day' : 'Night'} (N)</button>
-              <button className="btn" onClick={() => setQuality((q) => (q === 'high' ? 'low' : 'high'))}>Quality: {quality}</button>
-              <button className="btn" onClick={exit}>Exit</button>
-            </div>
-          </div>
-          <Minimap world={world} floor={hud.floor} />
-          {view === 'first' && <div className="crosshair" />}
-          {tutorial && <TouchTutorial onClose={closeTutorial} />}
-          {isTouch ? <TouchControls /> : (
-            <div className="hint">
-              {locked ? 'WASD walk · Shift run · Mouse look · C camera · N night · Esc free mouse' : 'Click to look around with the mouse · WASD to walk'}
-            </div>
+          {mobile ? (
+            <>
+              <TouchControls world={world} onManualMove={() => tourRef.current.pause()} onToggleView={() => setView((v) => (v === 'first' ? 'third' : 'first'))} />
+              {view === 'first' && <div className="crosshair" />}
+              <MobileHud world={world} floorName={cfg.floors[hud.floor]?.name ?? ''} room={hud.room} floor={hud.floor} view={view} night={night}
+                quality={quality} settings={settings} fs={fs} fsAvailable={fsOk} menuOpen={menuOpen} mapOpen={mapOpen}
+                setMenu={(o) => { if (o) { haptic(8); uiClick(); } setMenu(o); }} setMap={(o) => { if (o) haptic(8); setMap(o); }}
+                onRoom={goRoom} onOutside={() => goTo('__outside')}
+                onView={press(() => setView((v) => (v === 'first' ? 'third' : 'first')))} onNight={press(() => setNight((n) => !n))}
+                onQuality={(q) => { haptic(8); setQuality(q); if (q === 'auto') setAutoTier(detectTier()); }}
+                onSetting={(k) => { haptic(8); void toggleSetting(k); }} onFullscreen={press(toggleFs)}
+                onRestartTour={press(() => tour.start())} onIntro={press(exit)}
+                styles={STYLES} styleId={styleId} thumbs={thumbs} onStyle={(id) => { haptic(8); setMenu(false); selectStyle(id); }} />
+              {portrait && !rotateDismissed && !onboarding && !menuOpen && !mapOpen && <RotateHint onClose={() => setRotateDismissed(true)} />}
+            </>
+          ) : (
+            <DesktopHud world={world} cfg={cfg} hud={hud} view={view} night={night} quality={quality} locked={locked}
+              onGo={goTo} onView={() => setView((v) => (v === 'first' ? 'third' : 'first'))} onNight={() => setNight((n) => !n)}
+              onQuality={() => setQuality((q) => (q === 'auto' ? 'high' : q === 'high' ? 'low' : 'auto'))} onExit={exit}
+              designOpen={designOpen} onDesign={() => setDesignOpen((o) => !o)} />
           )}
+          {!mobile && designOpen && (
+            <DesignPanel styles={STYLES} active={styleId} thumbs={thumbs} onPick={(id) => selectStyle(id)} onClose={() => setDesignOpen(false)} />
+          )}
+          {stopInfo && !menuOpen && !mapOpen && (
+            <TourCard title={stopInfo.title} size={stopSize(world, stopInfo)} text={stopInfo.text} index={tour.state.index} count={tour.count}
+              phase={tour.state.phase} paused={tour.state.paused}
+              onPause={press(tour.pause)} onResume={press(tour.resume)} onNext={press(tour.next)} onExit={press(tour.exit)} onRestart={press(tour.start)} />
+          )}
+          {onboarding && <Onboarding onDone={closeOnboarding} />}
         </>
       )}
     </div>

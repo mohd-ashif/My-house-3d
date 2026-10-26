@@ -1,0 +1,784 @@
+{
+ "id": "kerala-tile",
+ "name": "Kerala Tile Gable",
+ "subtitle": "Charcoal & Terracotta",
+ "description": "Twin gables: terracotta Mangalore tiles and a glass gable, charcoal walls, breeze blocks.",
+ "swatch": [
+  "#5b5d61",
+  "#b5502e",
+  "#ecebe6",
+  "#8a5a3a"
+ ],
+ "materials": {
+  "wallMain": "charcoalPaint",
+  "wallAccent1": "paint",
+  "wallAccent2": "breezeBlock",
+  "plinth": "charcoalPaint",
+  "fascia": "charcoalPaint",
+  "soffit": "timberSoffit",
+  "windowFrame": "teak",
+  "doorMain": "darkWood",
+  "railing": "paint",
+  "compoundWall": "charcoalPaint",
+  "paving": "lightStone"
+ },
+ "wallZones": [
+  {
+   "face": "front",
+   "floor": 1,
+   "from": 2.86,
+   "to": 7.25,
+   "role": "wallAccent1"
+  },
+  {
+   "face": "left",
+   "floor": 1,
+   "from": 4.5,
+   "to": 9.9,
+   "role": "wallAccent1"
+  }
+ ],
+ "roofs": [
+  {
+   "type": "gable",
+   "rect": {
+    "x1": 2.86,
+    "z1": -1.44,
+    "x2": 7.25,
+    "z2": 9.84
+   },
+   "baseY": 6.75,
+   "ridgeAxis": "z",
+   "pitchDeg": 38,
+   "overhang": 0.6,
+   "overhangFront": 0.9,
+   "thickness": 0.16,
+   "material": "roofDark",
+   "soffitMaterial": "darkWood",
+   "rafters": true,
+   "rafterMaterial": "darkWood",
+   "gableInfill": "glass",
+   "infillMaterial": "blackMetal",
+   "bargeMaterial": "darkWood"
+  },
+  {
+   "type": "gable",
+   "rect": {
+    "x1": 12.11,
+    "z1": 1.38,
+    "x2": 16.13,
+    "z2": 8.82
+   },
+   "baseY": 6.75,
+   "ridgeAxis": "x",
+   "pitchDeg": 25,
+   "overhang": 0.9,
+   "thickness": 0.18,
+   "material": "clayTile",
+   "soffitMaterial": "timberSoffit",
+   "gableInfill": "plaster",
+   "infillMaterial": "charcoalPaint",
+   "bargeMaterial": "darkWood",
+   "rafters": true,
+   "rafterMaterial": "darkWood"
+  },
+  {
+   "type": "flat",
+   "rect": {
+    "x1": 7.25,
+    "z1": -0.01,
+    "x2": 12.11,
+    "z2": 8.46
+   },
+   "baseY": 6.75,
+   "overhang": 0.25,
+   "overhangFront": 0.4,
+   "thickness": 0.18,
+   "material": "charcoalPaint",
+   "soffitMaterial": "timberSoffit"
+  }
+ ],
+ "elements": [
+  {
+   "type": "box",
+   "x": 3.58,
+   "z": 10.22,
+   "w": 1.44,
+   "d": 0.76,
+   "y": 3.45,
+   "h": 0.15,
+   "material": "charcoalPaint",
+   "collide": false
+  },
+  {
+   "type": "railing",
+   "x1": 2.92,
+   "z1": 10.55,
+   "x2": 4.26,
+   "z2": 10.55,
+   "y": 3.6,
+   "h": 1.0,
+   "material": "paint",
+   "balusters": true
+  },
+  {
+   "type": "column",
+   "x": 2.95,
+   "z": 10.52,
+   "y": 3.6,
+   "h": 3.35,
+   "r": 0.025,
+   "material": "copper"
+  },
+  {
+   "type": "column",
+   "x": 3.6,
+   "z": 10.52,
+   "y": 3.6,
+   "h": 3.35,
+   "r": 0.025,
+   "material": "copper"
+  },
+  {
+   "type": "column",
+   "x": 4.25,
+   "z": 10.52,
+   "y": 3.6,
+   "h": 3.35,
+   "r": 0.025,
+   "material": "copper"
+  },
+  {
+   "type": "box",
+   "x": 9.675,
+   "z": 8.905,
+   "w": 4.75,
+   "d": 0.89,
+   "y": 3.3,
+   "h": 0.65,
+   "material": "charcoalPaint",
+   "collide": false
+  },
+  {
+   "type": "creeper",
+   "axis": "x",
+   "a1": 7.35,
+   "a2": 12.0,
+   "c": 9.38,
+   "y": 3.35,
+   "minLen": 0.35,
+   "maxLen": 0.95,
+   "density": 18
+  },
+  {
+   "type": "column",
+   "x": 7.7,
+   "z": 9.2,
+   "y": 3.95,
+   "h": 2.8,
+   "r": 0.03,
+   "material": "copper"
+  },
+  {
+   "type": "column",
+   "x": 8.5,
+   "z": 9.2,
+   "y": 3.95,
+   "h": 2.8,
+   "r": 0.03,
+   "material": "copper"
+  },
+  {
+   "type": "column",
+   "x": 9.3,
+   "z": 9.2,
+   "y": 3.95,
+   "h": 2.8,
+   "r": 0.03,
+   "material": "copper"
+  },
+  {
+   "type": "column",
+   "x": 10.1,
+   "z": 9.2,
+   "y": 3.95,
+   "h": 2.8,
+   "r": 0.03,
+   "material": "copper"
+  },
+  {
+   "type": "column",
+   "x": 10.9,
+   "z": 9.2,
+   "y": 3.95,
+   "h": 2.8,
+   "r": 0.03,
+   "material": "copper"
+  },
+  {
+   "type": "column",
+   "x": 11.7,
+   "z": 9.2,
+   "y": 3.95,
+   "h": 2.8,
+   "r": 0.03,
+   "material": "copper"
+  },
+  {
+   "type": "box",
+   "x": 9.675,
+   "z": 9.2,
+   "w": 4.75,
+   "d": 0.16,
+   "y": 6.63,
+   "h": 0.12,
+   "material": "copper",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 12.85,
+   "z": 7.41,
+   "w": 0.9,
+   "d": 0.02,
+   "y": 3.65,
+   "h": 2.9,
+   "material": "sheer",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 15.505,
+   "z": 7.41,
+   "w": 1.15,
+   "d": 0.02,
+   "y": 3.65,
+   "h": 2.9,
+   "material": "sheer",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 12.42,
+   "z": 7.45,
+   "w": 0.07,
+   "d": 0.08,
+   "y": 3.6,
+   "h": 3.0,
+   "material": "darkWood",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 13.33,
+   "z": 7.45,
+   "w": 0.07,
+   "d": 0.08,
+   "y": 3.6,
+   "h": 3.0,
+   "material": "darkWood",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 14.9,
+   "z": 7.45,
+   "w": 0.07,
+   "d": 0.08,
+   "y": 3.6,
+   "h": 3.0,
+   "material": "darkWood",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 15.5,
+   "z": 7.45,
+   "w": 0.07,
+   "d": 0.08,
+   "y": 3.6,
+   "h": 3.0,
+   "material": "darkWood",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 16.06,
+   "z": 7.45,
+   "w": 0.07,
+   "d": 0.08,
+   "y": 3.6,
+   "h": 3.0,
+   "material": "darkWood",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 14.24,
+   "z": 7.45,
+   "w": 3.68,
+   "d": 0.06,
+   "y": 5.95,
+   "h": 0.08,
+   "material": "darkWood",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 14.24,
+   "z": 7.45,
+   "w": 3.68,
+   "d": 0.06,
+   "y": 6.53,
+   "h": 0.07,
+   "material": "darkWood",
+   "collide": false
+  },
+  {
+   "type": "railing",
+   "x1": 12.3,
+   "z1": 8.78,
+   "x2": 16.0,
+   "z2": 8.78,
+   "y": 3.6,
+   "h": 1.0,
+   "material": "paint",
+   "balusters": true
+  },
+  {
+   "type": "column",
+   "x": 16.32,
+   "z": 9.55,
+   "y": 3.6,
+   "h": 2.8,
+   "r": 0.03,
+   "material": "blackMetal"
+  },
+  {
+   "type": "box",
+   "x": 4.725,
+   "z": 8.88,
+   "w": 3.35,
+   "d": 0.08,
+   "y": 0.45,
+   "h": 2.85,
+   "material": "breezeBlock",
+   "collide": true
+  },
+  {
+   "type": "louvers",
+   "x1": 13.12,
+   "z1": 7.43,
+   "x2": 15.12,
+   "z2": 7.43,
+   "y0": 1.35,
+   "y1": 2.5500000000000003,
+   "count": 4,
+   "dir": "horizontal",
+   "slat": 0.04,
+   "depth": 0.05,
+   "material": "darkWood"
+  },
+  {
+   "type": "box",
+   "x": 11.125,
+   "z": 8.495,
+   "w": 2.35,
+   "d": 0.05,
+   "y": 0.45,
+   "h": 2.8,
+   "material": "paint",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 11.2,
+   "z": 18.0,
+   "w": 0.3,
+   "d": 0.24,
+   "y": 0,
+   "h": 1.95,
+   "material": "breezeBlock",
+   "collide": true
+  },
+  {
+   "type": "box",
+   "x": 15.875,
+   "z": 18.0,
+   "w": 9.05,
+   "d": 0.2,
+   "y": 1.5,
+   "h": 0.35,
+   "material": "breezeBlock",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 8.3,
+   "z": 14.3,
+   "w": 0.6,
+   "d": 6.6,
+   "y": 0,
+   "h": 0.03,
+   "material": "lightStone",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 9.44,
+   "z": 14.3,
+   "w": 0.6,
+   "d": 6.6,
+   "y": 0,
+   "h": 0.03,
+   "material": "lightStone",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 10.6,
+   "z": 14.3,
+   "w": 0.6,
+   "d": 6.6,
+   "y": 0,
+   "h": 0.03,
+   "material": "lightStone",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 2.6,
+   "z": 10.35,
+   "w": 4.0,
+   "d": 0.7,
+   "y": 0,
+   "h": 0.03,
+   "material": "lightStone",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 2.6,
+   "z": 11.55,
+   "w": 4.0,
+   "d": 0.7,
+   "y": 0,
+   "h": 0.03,
+   "material": "lightStone",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 2.6,
+   "z": 12.75,
+   "w": 4.0,
+   "d": 0.7,
+   "y": 0,
+   "h": 0.03,
+   "material": "lightStone",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 2.6,
+   "z": 13.95,
+   "w": 4.0,
+   "d": 0.7,
+   "y": 0,
+   "h": 0.03,
+   "material": "lightStone",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 2.6,
+   "z": 15.15,
+   "w": 4.0,
+   "d": 0.7,
+   "y": 0,
+   "h": 0.03,
+   "material": "lightStone",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 2.6,
+   "z": 16.35,
+   "w": 4.0,
+   "d": 0.7,
+   "y": 0,
+   "h": 0.03,
+   "material": "lightStone",
+   "collide": false
+  },
+  {
+   "type": "box",
+   "x": 2.6,
+   "z": 17.55,
+   "w": 4.0,
+   "d": 0.7,
+   "y": 0,
+   "h": 0.03,
+   "material": "lightStone",
+   "collide": false
+  }
+ ],
+ "landscape": {
+  "plants": [
+   {
+    "type": "palm",
+    "x": -2.4,
+    "z": 9.8,
+    "y": 0,
+    "scale": 1.3
+   },
+   {
+    "type": "palm",
+    "x": 19.4,
+    "z": 6.0,
+    "y": 0,
+    "scale": 1.25
+   },
+   {
+    "type": "palm",
+    "x": 6.0,
+    "z": -3.0,
+    "y": 0,
+    "scale": 1.25
+   },
+   {
+    "type": "palm",
+    "x": 14.0,
+    "z": -3.0,
+    "y": 0,
+    "scale": 1.1
+   },
+   {
+    "type": "palm",
+    "x": 20.0,
+    "z": 15.5,
+    "y": 0,
+    "scale": 1.0
+   },
+   {
+    "type": "heliconia",
+    "x": 0.49,
+    "z": 8.73,
+    "y": 0,
+    "scale": 0.9
+   },
+   {
+    "type": "heliconia",
+    "x": 1.12,
+    "z": 8.7,
+    "y": 0,
+    "scale": 0.82
+   },
+   {
+    "type": "heliconia",
+    "x": 1.6,
+    "z": 8.71,
+    "y": 0,
+    "scale": 0.83
+   },
+   {
+    "type": "heliconia",
+    "x": 2.53,
+    "z": 8.5,
+    "y": 0,
+    "scale": 0.75
+   },
+   {
+    "type": "heliconia",
+    "x": 3.33,
+    "z": 9.68,
+    "y": 0,
+    "scale": 0.79
+   },
+   {
+    "type": "heliconia",
+    "x": 3.84,
+    "z": 9.36,
+    "y": 0,
+    "scale": 0.72
+   },
+   {
+    "type": "heliconia",
+    "x": 4.59,
+    "z": 9.76,
+    "y": 0,
+    "scale": 0.79
+   },
+   {
+    "type": "heliconia",
+    "x": 5.43,
+    "z": 9.63,
+    "y": 0,
+    "scale": 0.79
+   },
+   {
+    "type": "heliconia",
+    "x": 5.88,
+    "z": 9.57,
+    "y": 0,
+    "scale": 0.67
+   },
+   {
+    "type": "alocasia",
+    "x": 12.89,
+    "z": 8.09,
+    "y": 0,
+    "scale": 1.06
+   },
+   {
+    "type": "alocasia",
+    "x": 14.01,
+    "z": 7.84,
+    "y": 0,
+    "scale": 0.92
+   },
+   {
+    "type": "alocasia",
+    "x": 14.49,
+    "z": 7.86,
+    "y": 0,
+    "scale": 1.07
+   },
+   {
+    "type": "alocasia",
+    "x": 15.3,
+    "z": 8.02,
+    "y": 0,
+    "scale": 0.91
+   },
+   {
+    "type": "alocasia",
+    "x": 16.54,
+    "z": 3.1,
+    "y": 0,
+    "scale": 1.05
+   },
+   {
+    "type": "alocasia",
+    "x": 17.22,
+    "z": 2.89,
+    "y": 0,
+    "scale": 0.93
+   },
+   {
+    "type": "alocasia",
+    "x": 17.38,
+    "z": 3.08,
+    "y": 0,
+    "scale": 0.94
+   },
+   {
+    "type": "tropical",
+    "x": 7.6,
+    "z": 8.9,
+    "y": 3.95,
+    "scale": 0.55
+   },
+   {
+    "type": "tropical",
+    "x": 8.55,
+    "z": 8.9,
+    "y": 3.95,
+    "scale": 0.55
+   },
+   {
+    "type": "tropical",
+    "x": 9.5,
+    "z": 8.9,
+    "y": 3.95,
+    "scale": 0.55
+   },
+   {
+    "type": "tropical",
+    "x": 10.45,
+    "z": 8.9,
+    "y": 3.95,
+    "scale": 0.55
+   },
+   {
+    "type": "tropical",
+    "x": 11.4,
+    "z": 8.9,
+    "y": 3.95,
+    "scale": 0.55
+   },
+   {
+    "type": "alocasia",
+    "x": 7.1,
+    "z": 10.6,
+    "y": 0,
+    "scale": 0.9
+   },
+   {
+    "type": "alocasia",
+    "x": 11.8,
+    "z": 10.6,
+    "y": 0,
+    "scale": 0.9
+   }
+  ],
+  "road": {
+   "x1": -30,
+   "z1": 18.4,
+   "x2": 50,
+   "z2": 26,
+   "reflect": true
+  }
+ },
+ "lighting": {
+  "sun": [
+   -14,
+   40,
+   22
+  ],
+  "sunColor": "#fff8ec",
+  "sunIntensity": 3.4,
+  "hemi": [
+   "#cfe3ff",
+   "#567040",
+   0.6
+  ],
+  "ambient": 0.14,
+  "exposure": 1.05,
+  "sky": {
+   "turbidity": 2.5,
+   "rayleigh": 0.9,
+   "mieCoefficient": 0.004,
+   "mieDirectionalG": 0.8
+  },
+  "background": "#9cc4ea",
+  "fog": "#bcd6ee",
+  "clouds": {
+   "count": 9,
+   "opacity": 1,
+   "color": "#ffffff",
+   "height": 30
+  },
+  "facadeLights": [
+   {
+    "x": 10.9,
+    "y": 3.0,
+    "z": 9.2,
+    "intensity": 2.5,
+    "distance": 4.0
+   }
+  ]
+ },
+ "introCamera": {
+  "pos": [
+   10.6,
+   1.9,
+   26.5
+  ],
+  "target": [
+   9.0,
+   4.6,
+   6.0
+  ]
+ }
+}

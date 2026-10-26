@@ -14,6 +14,19 @@ Add `?q=low` to the URL on slow laptops or phones.
 WASD / arrows: walk · Shift: run · Click: mouse-look (Esc to release) · C: first/third person
 N: day/night · "Go to room…" menu: teleport (or "Outside" back to the gate) · Exit: back to the intro
 Phones: left joystick + drag on the right side (a one-time tip explains this).
+V or "🏠 Design": switch the exterior design (see below).
+
+## Exterior designs
+The same plan can be dressed in three elevations: **Modern Tropical** (`modern-tropical`), **Contemporary Gable**
+(`concrete-gable`) and **Kerala Tile Gable** (`kerala-tile`). Pick one on the intro screen, from the Design
+panel, or with `?style=<id>`. The choice is remembered and written into the URL, so a shared link opens the
+same design. Styles live in `src/data/styles/*.json`: style 1 comes from `build_house_json.py`, styles 2 and 3
+from `python scripts/build_styles.py`. None of them move a room, door or window.
+
+## Phones and slow machines
+The renderer picks a quality tier from the device (GPU, memory, cores). Override it with `?tier=low|mid|high`.
+The app installs as a PWA (`src/app/manifest.ts`, icons from `scripts/make_icons.py`). The guided tour
+stops are in `src/data/tour.json`.
 
 ## Dollhouse views (screenshots, presentations)
 `?view=x,y,z,tx,ty,tz&cut=6.1` fixes the camera at (x,y,z) looking at (tx,ty,tz) and clips everything
@@ -46,6 +59,10 @@ moves a room. Façade view: `?view=20.0,3.2,23.5,7.6,3.6,6.5`.
 ## Checking it against the plans
 ```bash
 python scripts/validate_house.py src/data/house.json --out plan_check.png   # sizes, openings, overlaps + overlay on the PDFs
-node scripts/walk_sim.mjs                                                    # walks gate -> every room with the real physics
+node scripts/walk_sim.mjs                                                    # walks gate -> every room (and tap-to-walk) in every design
 python scripts/grid_overlay.py gf 154.76 164.56 0 0 17.1 10.3 out.png 200   # metre grid over a sheet (ff origin: 107.10 158.85)
 ```
+
+Browser checks (run with the browser-automation runner against a running dev server; see each script's header):
+`scripts/mobile_qa.mjs` (phones/tablets, `DEVICE=…`), `scripts/style_switch_qa.mjs` (design switching, FPS) and
+`scripts/style_shots.mjs` (screenshots of every design into `screenshots/styles/`).

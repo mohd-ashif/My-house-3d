@@ -5,7 +5,7 @@ import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
-execSync('npx tsc src/lib/world.ts src/lib/physics.ts --outDir .sim --module commonjs --target es2020 --skipLibCheck', { stdio: 'inherit' });
+execSync('npx tsc src/lib/world.ts src/lib/physics.ts src/lib/nav.ts --outDir .sim --module commonjs --target es2020 --skipLibCheck', { stdio: 'inherit' });
 mkdirSync('.sim', { recursive: true });
 writeFileSync('.sim/package.json', '{"type":"commonjs"}');
 const require = createRequire(import.meta.url);
@@ -78,12 +78,6 @@ const route = [
   ['bedroom', [[1.82, 3.9], [1.82, 5.2], [3.3, 5.25], [3.3, 4.2], [11.9, 3.85], [12.8, 3.85], [13.4, 4.4], [13.4, 6.6]], 'Bedroom', 0],
   ['GF toilet', [[13.4, 4.4], [15.45, 3.6], [15.45, 2.72], [14.4, 2.72], [13.9, 2.6]], 'Toilet', 0],
 ];
-console.log('Walk: gate -> sit-out -> main door -> living -> passage -> stairs -> FF -> every room');
-for (const [label, pts, room, floor] of route) {
-  for (const [x, z] of pts) if (!walkTo(x, z, label)) break;
-  stop(label, room, floor);
-}
-
 // ---------- furniture sanity: inside a room, clear of walls ----------
 const { expandFurniture } = require('../.sim/furniture.js');
 const wallBoxes = world.pieces.filter((q) => q.uv === 'wall' && q.material !== 'glass');
@@ -104,5 +98,69 @@ for (const d of world.doors) {
     if (Math.hypot(rx - x, rz - z) > 0.05) { problems++; console.log(`DOOR at ${d.axis}=${d.c.toFixed(2)} ${d.a.toFixed(2)}-${d.b.toFixed(2)} floor ${d.floor}: blocked on its ${off < 0 ? '-' : '+'} side`); }
   }
 }
-console.log(problems ? `${problems} problem(s)` : 'All stops correct, no blocked doors, no furniture in walls.');
+// ---------- every exterior design: its colliders (planters, screens, columns, trunks) + the same walks ----------
+// mirrors the collider rules of src/lib/styleGeometry.ts (this runs without three.js)
+const { readdirSync } = await import('node:fs');
+const { clearNav } = require('../.sim/nav.js');
+function styleObstacles(st) {
+  const out = [];
+  for (const e of st.elements) {
+    if (e.type === 'box' && e.collide) out.push({ x1: e.x - e.w / 2, x2: e.x + e.w / 2, z1: e.z - e.d / 2, z2: e.z + e.d / 2, y0: e.y, y1: e.y + Math.max(e.h, e.colH ?? 0) });
+    if (e.type === 'column' && e.collide) out.push({ x1: e.x - e.r, x2: e.x + e.r, z1: e.z - e.r, z2: e.z + e.r, y0: e.y, y1: e.y + e.h });
+    if (e.type === 'louvers' && e.collide) { const dp = (e.depth ?? 0.12) / 2; out.push({ x1: Math.min(e.x1, e.x2) - dp, x2: Math.max(e.x1, e.x2) + dp, z1: Math.min(e.z1, e.z2) - dp, z2: Math.max(e.z1, e.z2) + dp, y0: e.y0, y1: e.y1 }); }
+  }
+  for (const q of st.landscape.plants) {
+    const y = q.y ?? 0, sc = q.scale ?? 1;
+    const r = q.type === 'palm' ? 0.18 : q.type === 'tree' ? 0.22 * sc : q.type === 'rainTree' ? 0.32 * sc : q.type === 'potted' ? 0.2 : 0;
+    if (r) out.push({ x1: q.x - r, x2: q.x + r, z1: q.z - r, z2: q.z + r, y0: y, y1: y + 4 });
+    if (q.type === 'hedge') out.push({ x1: q.x - (q.w ?? 1) / 2, x2: q.x + (q.w ?? 1) / 2, z1: q.z - (q.d ?? 0.6) / 2, z2: q.z + (q.d ?? 0.6) / 2, y0: y, y1: y + 1 });
+  }
+  return out;
+}
+const styleFiles = readdirSync('src/data/styles').filter((f) => f.endsWith('.json'));
+for (const file of styleFiles) {
+  const st = JSON.parse(readFileSync(`src/data/styles/${file}`, 'utf8'));
+  world.extraObstacles = styleObstacles(st);
+  clearNav();
+  console.log(`
+===== design: ${st.name} (${world.extraObstacles.length} style colliders) =====`);
+  p.x = cfg.spawn.x; p.z = cfg.spawn.z; p.feet = groundHeight(world, p.x, p.z, 0.6);
+  console.log('Walk: gate -> sit-out -> main door -> living -> passage -> stairs -> FF -> every room');
+  for (const [label, pts, room, floor] of route) {
+    for (const [x, z] of pts) if (!walkTo(x, z, label)) break;
+    stop(label, room, floor);
+  }
+  // ---------- guided tour (src/data/tour.json): every leg must be walkable and end in its room ----------
+  const tour = JSON.parse(readFileSync('src/data/tour.json', 'utf8'));
+  p.x = tour.start.x; p.z = tour.start.z; p.feet = groundHeight(world, p.x, p.z, 0.6);
+  console.log('Guided tour:');
+  for (const s of tour.stops) {
+    for (const [x, z] of s.path) if (!walkTo(x, z, s.title)) break;
+    const want = s.room ? cfg.rooms.find((r) => r.id === s.room) : null;
+    if (want) stop(s.title, want.name, want.floor); else console.log(`OK  ${s.title.padEnd(12)} -> outside at (${p.x.toFixed(2)}, ${p.z.toFixed(2)})`);
+  }
+  
+  // ---------- tap-to-walk: A* paths across a floor, followed with the physics ----------
+  const { findPath } = require('../.sim/nav.js');
+  console.log('Tap-to-walk:');
+  const taps = [
+    ['GF bedroom -> kitchen', [13.4, 6.4, 0.45], [1.5, 6.2], 'Kitchen', 0],
+    ['kitchen -> guest', [1.5, 6.2, 0.45], [5.6, 2.4], 'Guest Bedroom', 0],
+    ['guest -> courtyard', [5.6, 2.4, 0.45], [10.5, 1.5], 'Courtyard', 0],
+    ['bed 1 -> master', [4.7, 1.6, 3.6], [13.3, 6.4], 'Master Bedroom', 1],
+    ['master -> bed 3 toilet', [13.3, 6.4, 3.6], [4.5, 5.5], 'Attached Toilet', 1],
+  ];
+  for (const [label, [sx, sz, sf], [tx, tz], room, floor] of taps) {
+    p.x = sx; p.z = sz; p.feet = sf;
+    const t0 = performance.now();
+    const path = findPath(world, sx, sz, sf, tx, tz);
+    const ms = performance.now() - t0;
+    if (!path) { problems++; console.log(`BAD ${label}: no path`); continue; }
+    for (const [x, z] of path) if (!walkTo(x, z, label)) break;
+    stop(label, room, floor);
+    console.log(`    ${path.length} waypoints, planned in ${ms.toFixed(0)} ms`);
+  }
+}
+
+console.log(problems ? `${problems} problem(s)` : `All stops correct in all ${styleFiles.length} designs, no blocked doors, no furniture in walls.`);
 process.exit(problems ? 1 : 0);

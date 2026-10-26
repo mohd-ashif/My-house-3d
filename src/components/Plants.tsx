@@ -84,6 +84,93 @@ function Tropical({ p }: { p: Plant }) {
   );
 }
 
+const bractMat = new THREE.MeshStandardMaterial({ color: '#e0531f', roughness: 0.6, flatShading: true });
+const bractTip = new THREE.MeshStandardMaterial({ color: '#f2b233', roughness: 0.6, flatShading: true });
+
+/** Heliconia: a tropical clump with upright red-orange bracts. */
+function Heliconia({ p }: { p: Plant }) {
+  const s = p.scale ?? 1;
+  const seed = Math.abs(Math.round(p.x * 17 + p.z * 5));
+  return (
+    <group position={[p.x, p.y ?? 0, p.z]} scale={s}>
+      <Tropical p={{ ...p, x: 0, z: 0, y: 0, scale: 0.8 }} />
+      {Array.from({ length: 4 }, (_, i) => {
+        const a = i * 1.7 + seed, r = 0.12 + (i % 2) * 0.1;
+        return (
+          <group key={i} position={[Math.cos(a) * r, 0.9 + (i % 3) * 0.12, Math.sin(a) * r]} rotation={[0, a, 0.2]}>
+            <mesh material={bractMat} position={[0, 0, 0]}><coneGeometry args={[0.05, 0.16, 4]} /></mesh>
+            <mesh material={bractMat} position={[0.04, -0.12, 0]} rotation={[0, 0, -0.6]}><coneGeometry args={[0.045, 0.15, 4]} /></mesh>
+            <mesh material={bractTip} position={[-0.03, 0.12, 0]}><coneGeometry args={[0.03, 0.1, 4]} /></mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+function heartLeafGeometry() {
+  // alocasia / elephant-ear leaf: a broad heart shape, slightly cupped
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0);
+  shape.bezierCurveTo(0.35, 0.1, 0.42, 0.55, 0, 0.95);
+  shape.bezierCurveTo(-0.42, 0.55, -0.35, 0.1, 0, 0);
+  const g = new THREE.ShapeGeometry(shape, 6);
+  const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i); pos.setZ(i, -0.25 * x * x + 0.12 * y); }
+  g.computeVertexNormals();
+  return g;
+}
+
+function Alocasia({ p }: { p: Plant }) {
+  const s = p.scale ?? 1;
+  const leaf = useMemo(heartLeafGeometry, []);
+  const seed = Math.abs(Math.round(p.x * 11 + p.z * 13));
+  return (
+    <group position={[p.x, p.y ?? 0, p.z]} scale={s}>
+      {Array.from({ length: 5 }, (_, i) => {
+        const a = (i / 5) * Math.PI * 2 + seed, h = 0.55 + (i % 3) * 0.2;
+        return (
+          <group key={i} rotation={[0, a, 0]}>
+            <mesh material={trunkMat} position={[0, h / 2, 0.12]} rotation={[0.25, 0, 0]}><cylinderGeometry args={[0.018, 0.025, h, 5]} /></mesh>
+            <mesh geometry={leaf} material={leafMats[(i + seed) % 4]} position={[0, h, 0.25]} rotation={[-0.9 - (i % 2) * 0.2, 0, Math.PI]} castShadow />
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+/** Fern: many small arching fronds (the tropical blade, scaled down). */
+function Fern({ p }: { p: Plant }) {
+  const s = p.scale ?? 1;
+  const leaf = useMemo(broadLeafGeometry, []);
+  const seed = Math.abs(Math.round(p.x * 7 + p.z * 19));
+  return (
+    <group position={[p.x, p.y ?? 0, p.z]} scale={[s * 0.6, s * 0.45, s * 0.6]}>
+      {Array.from({ length: 12 }, (_, i) => (
+        <group key={i} rotation={[0, (i / 12) * Math.PI * 2 + seed, 0]}>
+          <mesh geometry={leaf} material={leafMats[(i + seed) % 4]} rotation={[0.9 + (i % 3) * 0.15, 0, 0]} scale={[0.45, 1, 1]} castShadow />
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** Rain tree: short trunk, wide umbrella canopy. */
+function RainTree({ p }: { p: Plant }) {
+  const s = p.scale ?? 1;
+  return (
+    <group position={[p.x, p.y ?? 0, p.z]} scale={s}>
+      <mesh material={trunkMat} position={[0, 1.6, 0]} castShadow><cylinderGeometry args={[0.18, 0.32, 3.2, 8]} /></mesh>
+      <mesh material={trunkMat} position={[0.7, 3.2, 0.2]} rotation={[0, 0, -0.8]} castShadow><cylinderGeometry args={[0.08, 0.14, 1.9, 6]} /></mesh>
+      <mesh material={trunkMat} position={[-0.7, 3.3, -0.3]} rotation={[0.2, 0, 0.8]} castShadow><cylinderGeometry args={[0.08, 0.14, 1.9, 6]} /></mesh>
+      {[[0, 4.2, 0, 2.6], [1.9, 3.9, 0.6, 1.8], [-1.9, 4.0, -0.4, 1.9], [0.5, 4.1, 1.8, 1.7], [-0.4, 4.0, -1.8, 1.7]].map(([x, y, z, r], i) => (
+        <mesh key={i} material={leafMats[i % 4]} position={[x, y, z]} scale={[1, 0.45, 1]} castShadow><icosahedronGeometry args={[r, 1]} /></mesh>
+      ))}
+    </group>
+  );
+}
+
 function Vine({ p }: { p: Plant }) {
   // creeper hanging from a beam: clumps along w, strands dropping up to d
   const w = p.w ?? 2, drop = p.d ?? 0.8;
@@ -161,6 +248,10 @@ export default function Plants({ plants }: { plants: Plant[] }) {
           case 'potted': return <Potted key={i} p={p} />;
           case 'tropical': return <Tropical key={i} p={p} />;
           case 'vine': return <Vine key={i} p={p} />;
+          case 'heliconia': return <Heliconia key={i} p={p} />;
+          case 'alocasia': return <Alocasia key={i} p={p} />;
+          case 'fern': return <Fern key={i} p={p} />;
+          case 'rainTree': return <RainTree key={i} p={p} />;
           default: return <Shrub key={i} p={p} />;
         }
       })}
