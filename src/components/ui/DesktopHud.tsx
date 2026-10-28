@@ -5,6 +5,29 @@ import type { HouseConfig } from '@/lib/types';
 import { player } from '@/lib/player';
 import type { Quality } from '../Scene';
 import type { ViewMode } from '../Player';
+import { peers } from '@/lib/multiplayer';
+import { usePeers } from './Online';
+
+/** Other visitors on this floor, as dots in their shirt colour. */
+function PeerDots({ floorY, nextY }: { floorY: number; nextY: number }) {
+  const { list } = usePeers();
+  const g = useRef<SVGGElement>(null);
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      g.current?.querySelectorAll<SVGCircleElement>('circle[data-id]').forEach((c) => {
+        const p = peers.get(c.dataset.id!);
+        const here = !!p && p.f > floorY - 0.6 && p.f < nextY - 0.6;
+        c.setAttribute('visibility', here ? 'visible' : 'hidden');
+        if (p) { c.setAttribute('cx', String(p.x)); c.setAttribute('cy', String(p.z)); }
+      });
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+    return () => cancelAnimationFrame(raf);
+  }, [floorY, nextY]);
+  return <g ref={g}>{list.map((p) => <circle key={p.id} data-id={p.id} r={0.3} fill={p.color} stroke="#fff" strokeWidth={0.06} />)}</g>;
+}
 
 function Minimap({ world, floor }: { world: World; floor: number }) {
   const dot = useRef<SVGGElement>(null);
@@ -41,6 +64,7 @@ function Minimap({ world, floor }: { world: World; floor: number }) {
           );
         })}
         {pl && <rect x={pl.x1} y={pl.z1} width={pl.x2 - pl.x1} height={pl.z2 - pl.z1} fill="none" stroke="rgba(255,255,255,.35)" strokeWidth={0.1} />}
+        <PeerDots floorY={world.cfg.floors[floor]?.y ?? 0} nextY={world.cfg.floors[floor + 1]?.y ?? Infinity} />
         <g ref={dot}>
           <circle r={0.35} fill="#ffcf5a" />
           <path d="M0 -0.9 L0.35 -0.2 L-0.35 -0.2 Z" fill="#ffcf5a" />

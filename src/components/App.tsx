@@ -27,6 +27,8 @@ import MobileHud, { RotateHint, type MobileSettings } from './ui/MobileHud';
 import TouchControls from './ui/TouchControls';
 import { Loader, NoWebGL, ContextLost, Onboarding, TourCard, Intro } from './ui/Overlays';
 import { DesignPanel, Toast } from './ui/Design';
+import { OnlinePanel } from './ui/Online';
+import { connect, disconnect, onMpChange } from '@/lib/multiplayer';
 
 const cfg = houseJson as unknown as HouseConfig;
 
@@ -99,6 +101,7 @@ function Walkthrough() {
     for (const st of STYLES) { const v = storage.get(`house-thumb-v1-${st.id}`); if (v) t[st.id] = v; }
     return t;
   });
+  const [playerName, setPlayerName] = useState(() => storage.get('house-name') ?? '');
   const tour = useTour(world);
   const tourRef = useRef(tour); tourRef.current = tour;
 
@@ -177,6 +180,7 @@ function Walkthrough() {
   useEffect(() => {
     const MOVE = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
     const down = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement | null)?.tagName === 'INPUT') return; // typing a name, not walking
       keys.add(e.code);
       if (MOVE.has(e.code)) tourRef.current.pause(); // walking yourself pauses the guided tour
       if (e.code === 'KeyC') setView((v) => (v === 'first' ? 'third' : 'first'));
@@ -237,10 +241,20 @@ function Walkthrough() {
     teleport(x, z, groundHeight(world, x, z, 0.6), yaw ?? 0);
   };
 
+  // ---------- multiplayer: join/leave notices ----------
+  useEffect(() => onMpChange((e) => {
+    if (e) setToast({ text: e.type === 'join' ? `${e.name} entered the house` : `${e.name} left`, stamp: Date.now() });
+  }), []);
+  useEffect(() => () => disconnect(), []);
+
   const enter = (mode: 'free' | 'tour') => {
     if (mobile) { void enterFullscreen().then(lockLandscape); haptic(10); }
     toSpawn();
     setEntered(true);
+    let name = playerName.replace(/\s+/g, ' ').trim().slice(0, 20);
+    if (!name) { name = `Guest ${Math.floor(100 + Math.random() * 900)}`; setPlayerName(name); }
+    storage.set('house-name', name);
+    connect(name);
     requestLock();
     const firstTime = mobile && !storage.get('house-onboarding-seen');
     if (firstTime) setOnboarding(true);
@@ -257,6 +271,7 @@ function Walkthrough() {
     if (document.pointerLockElement) document.exitPointerLock();
     keys.clear();
     tour.exit();
+    disconnect();
     setMenu(false); setMap(false);
     setEntered(false);
   };
@@ -320,7 +335,7 @@ function Walkthrough() {
       {lost && <ContextLost />}
       {shot ? null : !entered ? (
         <Intro name={cfg.name} ready={ready} mobile={mobile} onTour={() => enter('tour')} onFree={() => enter('free')}
-          styles={STYLES} styleId={styleId} thumbs={thumbs} onStyle={selectStyle} />
+          styles={STYLES} styleId={styleId} thumbs={thumbs} onStyle={selectStyle} playerName={playerName} onPlayerName={setPlayerName} />
       ) : (
         <>
           {mobile ? (
@@ -352,6 +367,7 @@ function Walkthrough() {
               phase={tour.state.phase} paused={tour.state.paused}
               onPause={press(tour.pause)} onResume={press(tour.resume)} onNext={press(tour.next)} onExit={press(tour.exit)} onRestart={press(tour.start)} />
           )}
+          {!menuOpen && !mapOpen && <OnlinePanel selfName={playerName} max={mobile ? 3 : 8} />}
           {onboarding && <Onboarding onDone={closeOnboarding} />}
         </>
       )}

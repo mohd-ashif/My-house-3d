@@ -16,6 +16,19 @@ N: day/night · "Go to room…" menu: teleport (or "Outside" back to the gate) �
 Phones: left joystick + drag on the right side (a one-time tip explains this).
 V or "🏠 Design": switch the exterior design (see below).
 
+## Multiplayer (see who else is inside)
+Everyone who enters types a name on the intro screen; inside, all visitors see each other walking around live,
+with the name over each person's head, a "N here now" list, and coloured dots on the minimap. It needs the small
+relay server running next to the site:
+```bash
+npm run mp         # WebSocket server on port 3001 (PORT=… to change)
+npm run dev        # the site, in a second terminal
+```
+The browser connects to `ws://<same host>:3001` by default. When the site is served over HTTPS, or the relay
+runs on another host, set `NEXT_PUBLIC_MP_URL` (e.g. `wss://mp.example.com`) at build time. The relay needs a
+host that keeps a process running (a VPS, Render, Railway, Fly.io); Vercel can host the site but not the relay.
+If the relay can't be reached the walkthrough still works on its own, and the panel says "Offline · retrying".
+
 ## Exterior designs
 The same plan can be dressed in three elevations: **Modern Tropical** (`modern-tropical`), **Contemporary Gable**
 (`concrete-gable`) and **Kerala Tile Gable** (`kerala-tile`). Pick one on the intro screen, from the Design

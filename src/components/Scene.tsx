@@ -18,6 +18,7 @@ import House from './House';
 import Plants, { Ground } from './Plants';
 import MergeStatic from './MergeStatic';
 import Player, { type HudInfo, type ViewMode } from './Player';
+import RemotePlayers from './RemotePlayers';
 import StyleLayer, { styleGeometry, dropStyleGeometry, creeperMaterial } from './StyleLayer';
 import { getMaterial } from '@/lib/materials';
 import StyleLighting, { lightingApi } from './StyleLighting';
@@ -230,6 +231,7 @@ export default function Scene({ world, entered, view, night, tier, mobile, style
       <ThumbnailMaker world={world} activeId={styleId} queue={thumbQueue} tier={tier} onThumb={onThumb} />
       <TapMarker />
       <Player world={world} entered={entered} view={view} mobile={mobile} hero={style.introCamera} onHud={onHud} />
+      {entered && <RemotePlayers />}
       {tier === 'high' && (
         <EffectComposer multisampling={0} enableNormalPass={false}>
           <N8AO aoRadius={0.8} intensity={2.2} distanceFalloff={0.8} halfRes quality="medium" />

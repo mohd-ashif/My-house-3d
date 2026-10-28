@@ -120,9 +120,10 @@ export function TourCard(props: {
   );
 }
 
-export function Intro({ name, ready, mobile, onTour, onFree, styles, styleId, thumbs, onStyle }: {
+export function Intro({ name, ready, mobile, onTour, onFree, styles, styleId, thumbs, onStyle, playerName, onPlayerName }: {
   name: string; ready: boolean; mobile: boolean; onTour: () => void; onFree: () => void;
   styles: StyleDef[]; styleId: string; thumbs: Record<string, string>; onStyle: (id: string) => void;
+  playerName: string; onPlayerName: (n: string) => void;
 }) {
   return (
     <div className={`intro${mobile ? ' m' : ''}`}>
@@ -132,6 +133,12 @@ export function Intro({ name, ready, mobile, onTour, onFree, styles, styleId, th
         <DesignCards styles={styles} active={styleId} thumbs={thumbs} onPick={onStyle} variant="row" />
       </div>
       <p>Walk through every room in 3D. Ground floor, first floor, the stairs, the courtyard: everything is built from the architect&apos;s plan.</p>
+      <label className="name-field">
+        <span>Your name</span>
+        <input value={playerName} maxLength={20} placeholder="So others can see who you are" autoComplete="nickname" enterKeyHint="go"
+          onChange={(e) => onPlayerName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && ready) { (e.target as HTMLInputElement).blur(); onFree(); } }} />
+      </label>
       <div className="intro-btns">
         {mobile ? (
           <>

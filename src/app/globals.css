@@ -236,3 +236,23 @@ canvas { display: block; touch-action: none; }
 .intro .choose-label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; opacity: .75; margin-bottom: 6px; }
 .intro .design-card { background: rgba(16,18,22,.55); backdrop-filter: blur(8px); }
 @media (max-height: 500px) { .intro .design-cards.row .design-card { flex-basis: 140px; } .intro .d-sub { display: none; } }
+
+/* multiplayer */
+.name-field { pointer-events: auto; display: flex; flex-direction: column; gap: 6px; margin: 0 0 16px; max-width: 340px; }
+.name-field span { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; opacity: .75; }
+.name-field input { font: inherit; font-size: 16px; color: #fff; background: rgba(16,18,22,.55); border: 1px solid rgba(255,255,255,.25);
+  border-radius: 12px; padding: 11px 14px; outline: none; backdrop-filter: blur(8px); -webkit-user-select: text; user-select: text; touch-action: manipulation; }
+.name-field input:focus { border-color: #f5f0e6; }
+.name-field input::placeholder { color: rgba(255,255,255,.5); }
+.nametag { padding: 3px 10px; border-radius: 999px; background: rgba(16,18,22,.72); border: 2px solid; color: #fff; font-size: 14px;
+  font-weight: 600; white-space: nowrap; transform: translateY(-50%); }
+.online { position: absolute; right: 16px; bottom: 16px; z-index: 3; padding: 10px 14px; border-radius: 14px; font-size: 13px;
+  pointer-events: none; max-width: 220px; }
+.online-head { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.online-dot { width: 8px; height: 8px; border-radius: 50%; background: #999; }
+.online-dot.on { background: #4cd36b; box-shadow: 0 0 6px #4cd36b; }
+.online ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 3px; }
+.online li { display: flex; align-items: center; gap: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .9; }
+.online li i { flex: none; width: 9px; height: 9px; border-radius: 50%; }
+.online li.more { opacity: .6; }
+.is-touch .online { right: calc(var(--sar) + 10px); bottom: auto; top: calc(var(--sat) + 66px); padding: 7px 11px; font-size: 12px; max-width: 170px; }
