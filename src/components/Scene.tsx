@@ -13,7 +13,7 @@ import { renderFlags } from '@/lib/events';
 import { player } from '@/lib/player';
 import { sceneRefs } from '@/lib/pick';
 import { clearNav } from '@/lib/nav';
-import { styleById } from '@/lib/styles';
+import { STYLES, styleById } from '@/lib/styles';
 import House from './House';
 import Plants, { Ground } from './Plants';
 import MergeStatic from './MergeStatic';
@@ -106,7 +106,7 @@ function StyleManager({ world, styleId, tier, shadows }: { world: World; styleId
   useEffect(() => {
     if (tightMemory()) return;
     // spaced timeouts (not requestIdleCallback: Safari lacks it), one design per slot
-    const ids = ['modern-tropical', 'concrete-gable', 'kerala-tile'].filter((i) => i !== styleId);
+    const ids = STYLES.map((s) => s.id).filter((i) => i !== styleId);
     const low = tier === 'low';
     const handles = ids.map((id, k) => window.setTimeout(() => {
       const geo = styleGeometry(world, styleById(id));

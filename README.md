@@ -30,10 +30,12 @@ host that keeps a process running (a VPS, Render, Railway, Fly.io); Vercel can h
 If the relay can't be reached the walkthrough still works on its own, and the panel says "Offline · retrying".
 
 ## Exterior designs
-The same plan can be dressed in three elevations: **Modern Tropical** (`modern-tropical`), **Contemporary Gable**
-(`concrete-gable`) and **Kerala Tile Gable** (`kerala-tile`). Pick one on the intro screen, from the Design
+The same plan can be dressed in five elevations: **Modern Tropical** (`modern-tropical`), **Contemporary Gable**
+(`concrete-gable`), **Kerala Tile Gable** (`kerala-tile`), and two takes on the client's teak-gable renders:
+**Teak Gable Villa** (`teak-gable`, the front elevation on a rain-wet evening) and **Teak Gable Garden**
+(`teak-gable-garden`, the three-quarter view across the lawn with the carport). Pick one on the intro screen, from the Design
 panel, or with `?style=<id>`. The choice is remembered and written into the URL, so a shared link opens the
-same design. Styles live in `src/data/styles/*.json`: style 1 comes from `build_house_json.py`, styles 2 and 3
+same design. Styles live in `src/data/styles/*.json`: style 1 comes from `build_house_json.py`, styles 2 to 5
 from `python scripts/build_styles.py`. None of them move a room, door or window.
 
 ## Phones and slow machines

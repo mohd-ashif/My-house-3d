@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import type { StyleDef } from '@/lib/types';
 
-/** Three exterior-design cards: thumbnail (or a colour swatch until it is rendered), name, one line. */
+/** Exterior-design cards: thumbnail (or a colour swatch until it is rendered), name, one line. */
 export function DesignCards({ styles, active, thumbs, onPick, variant = 'grid' }: {
   styles: StyleDef[]; active: string; thumbs: Record<string, string>; onPick: (id: string) => void; variant?: 'grid' | 'row';
 }) {

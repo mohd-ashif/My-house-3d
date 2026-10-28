@@ -1,4 +1,4 @@
-"""Writes the exterior design styles 2 and 3 (src/data/styles/*.json). Style 1 comes from build_house_json.py.
+"""Writes the exterior design styles 2 to 5 (src/data/styles/*.json). Style 1 comes from build_house_json.py.
 
 Every coordinate is mapped onto the existing plan; nothing here moves a room, door or window.
 Outer wall faces used below (plan metres):
@@ -184,12 +184,140 @@ kerala_tile = dict(
     introCamera=dict(pos=[10.6, 1.9, 26.5], target=[9.0, 4.6, 6.0]),
 )
 
+# ============================================================================================
+# STYLES 4 + 5 - Teak Gable Villa: the two client renders (front elevation in the rain, and the
+# three-quarter view over the lawn). Same façade; landscape, driveway, light and hero camera differ.
+# ============================================================================================
+def framed_pane(x1, x2, y1, y2, z, bar=0.06):
+    # a glass pane with a teak frame, standing just proud of a wall or gable at z
+    return [box(x1, x2, z, z + 0.02, y1, y2, "glass"),
+            box(x1 - bar, x2 + bar, z, z + 0.08, y1 - bar, y1, "teak"), box(x1 - bar, x2 + bar, z, z + 0.08, y2, y2 + bar, "teak"),
+            box(x1 - bar, x1, z, z + 0.08, y1, y2, "teak"), box(x2, x2 + bar, z, z + 0.08, y1, y2, "teak")]
+
+def sconce(x, y, z, axis="x"):
+    # small black up/down wall washer: a box on a front wall (axis x) or a side wall (axis z)
+    return box(x - 0.05, x + 0.05, z, z + 0.08, y - 0.07, y + 0.07, "blackMetal") if axis == "x" else box(x, x + 0.08, z - 0.05, z + 0.05, y - 0.07, y + 0.07, "blackMetal")
+
+def teak_gable_facade():
+    t = []
+    # far left: single-storey grey block (kitchen, parapet top 4.60) with two LED light lines and a white box window
+    t += [box(0.26, 0.29, 8.04, 8.07, 0.05, 4.5, "lamp"), box(0.50, 0.53, 8.04, 8.07, 0.05, 4.5, "lamp")]
+    t += [dict(type="boxFrame", axis="x", a1=0.62, a2=2.48, c=8.04, y0=1.17, y1=2.73, depth=0.38, thickness=0.13, outward=1, material="paint")]
+    t += [sconce(1.55, 3.3, 8.04)]
+    # under the projecting left wing: fat vertical teak fins with a creeper curtain, a slim teak post by the sit-out
+    t += [dict(type="louvers", x1=2.98, z1=9.6, x2=3.95, z2=9.6, y0=0, y1=SLAB, count=5, dir="vertical", slat=0.1, depth=0.14, material="teak", collide=True)]
+    t += [dict(type="creeper", axis="x", a1=2.9, a2=5.2, c=9.88, y=SLAB - 0.02, minLen=0.5, maxLen=1.6, density=24)]
+    t += [box(6.12, 6.24, 9.58, 9.70, 0, SLAB, "teak", collide=True)]
+    # left wing upper floor: teak cladding (zone) + a deep white box frame around the bedroom window
+    t += [dict(type="boxFrame", axis="x", a1=4.15, a2=6.70, c=9.84, y0=3.85, y1=5.95, depth=0.55, thickness=0.2, outward=1, material="paint")]
+    t += [sconce(3.55, 6.25, 9.84)]
+    # gable end: teak-clad triangle (roof infill), teak-framed glazing on its right half
+    t += framed_pane(5.0, 5.68, 6.88, 8.2, 9.95) + framed_pane(5.80, 6.52, 6.88, 7.38, 9.95)
+    # centre: tall teak-framed glazing with sheers around the real window (x 8.52-10.51, y 4.20-6.00 stays clear)
+    t += [box(7.56, 8.46, 8.47, 8.49, 3.80, 6.40, "sheer"), box(8.46, 10.56, 8.47, 8.49, 3.80, 4.15, "sheer"), box(8.46, 10.56, 8.47, 8.49, 6.05, 6.40, "sheer")]
+    t += [box(x - 0.04, x + 0.04, 8.46, 8.56, 3.74, 6.46, "teak") for x in (7.52, 8.48, 9.52, 10.58)]
+    t += [box(7.48, 10.62, 8.46, 8.56, y - 0.04, y + 0.04, "teak") for y in (3.76, 4.17, 6.03, 6.44)]
+    # grey stone-tile panel right of the glazing, with a wall washer
+    t += [box(10.70, 12.14, 8.46, 8.50, SLAB, ROOF + 0.3, "stoneTile"), sconce(11.42, 5.3, 8.50)]
+    # centre roof terrace: white parapet band, horizontal teak rail, potted palms
+    t += [box(7.25, 12.11, 8.30, 8.76, ROOF, ROOF + 0.3, "paint")]
+    t += [dict(type="railing", x1=7.5, z1=8.55, x2=11.9, z2=8.55, y=ROOF + 0.3, h=0.75, material="teak", posts=5)]
+    # master block: recessed balcony in a grey frame, teak handrail on the existing glass balustrade
+    t += [dict(type="boxFrame", axis="x", a1=12.0, a2=16.3, c=8.70, y0=SLAB - 0.15, y1=ROOF + 0.1, depth=0.32, thickness=0.32, outward=1, material="paintGrey")]
+    t += [box(12.0, 12.32, 7.38, 8.72, SLAB - 0.15, ROOF + 0.1, "paintGrey"), box(15.98, 16.3, 7.38, 8.72, SLAB - 0.15, ROOF + 0.1, "paintGrey")]
+    t += [box(12.32, 15.98, 8.64, 8.76, FF + 1.02, FF + 1.09, "teak")]
+    t += [box(13.4, 14.9, 7.42, 9.0, ROOF - 0.02, ROOF, "lamp")]  # linear downlight in the balcony ceiling
+    # raised white volume over the master block, vertical grooves on its front (its cap is the flat roof below)
+    t += [box(12.0, 16.3, 1.30, 9.02, ROOF, ROOF + 1.0, "paint")]
+    t += [dict(type="louvers", x1=12.06, z1=9.04, x2=16.24, z2=9.04, y0=ROOF + 0.1, y1=ROOF + 0.95, count=36, dir="vertical", slat=0.045, depth=0.04, material="paint")]
+    # ground floor: long white portal from the sit-out across the bedroom to a carport on the right
+    t += [box(6.35, 19.95, 9.90, 10.50, 3.05, 3.75, "paint")]
+    t += [box(x1, x2, 9.90, 10.50, 0, 3.05, "paint", collide=True) for x1, x2 in ((6.35, 6.90), (12.0, 12.5), (16.0, 16.4), (19.45, 19.95))]
+    t += [box(12.23, 16.13, 8.82, 9.90, 3.30, 3.60, "paint")]                      # canopy in front of the bedroom
+    t += [box(16.13, 19.95, 3.20, 9.90, 3.35, 3.75, "paint"), box(19.45, 19.95, 3.20, 3.70, 0, 3.35, "paint", collide=True)]
+    t += [box(16.2, 19.9, 3.2, 10.5, 0, 0.02, "lightStone")]                        # carport floor
+    # white steps over the granite ones, wall washers on the sit-out and bedroom walls
+    t += [box(7.64, 11.24, 10.20, 10.50, 0.30, 0.312, "white"), box(7.64, 11.24, 10.50, 10.80, 0.15, 0.162, "white"),
+          box(6.90, 12.0, 9.96, 10.20, GF, GF + 0.012, "white")]
+    t += [sconce(x, 2.65, 8.46) for x in (7.6, 10.05, 11.95)] + [sconce(x, 2.65, 7.38) for x in (12.75, 15.5)]
+    # paved apron along the front: grey pavers with grass joints
+    t += [box(-0.5, 20.3, 10.8, 12.2, 0, 0.02, "paverGrass"), box(-0.3, 6.3, 9.95, 10.8, 0, 0.02, "paverGrass"), box(12.5, 16.0, 7.6, 10.8, 0, 0.02, "paverGrass")]
+    return t
+
+TEAK_ROOFS = [
+    # left wing: steep dark gable facing the street, warm timber soffit, teak-clad gable end
+    dict(type="gable", rect=dict(x1=2.86, z1=-1.44, x2=7.25, z2=9.84), baseY=ROOF, ridgeAxis="z", pitchDeg=50, ridgeOffset=-0.04,
+         overhang=0.55, overhangFront=0.45, thickness=0.22, material="roofDark", soffitMaterial="timberSoffit",
+         gableInfill="plaster", infillMaterial="teak", bargeMaterial="blackMetal"),
+    # centre: flat roof terrace, thin white edge
+    dict(type="flat", rect=dict(x1=7.25, z1=-0.01, x2=12.11, z2=8.46), baseY=ROOF, overhang=0.2, overhangFront=0.3, thickness=0.2,
+         material="paint", soffitMaterial="paint"),
+    # master block: thin white cap over the raised volume, deep front overhang
+    dict(type="flat", rect=dict(x1=12.0, z1=1.30, x2=16.3, z2=9.02), baseY=ROOF + 1.0, overhang=0.3, overhangFront=0.35, thickness=0.15,
+         material="paint", soffitMaterial="paint"),
+]
+TEAK_MATERIALS = dict(wallMain="paint", wallAccent1="teak", wallAccent2="paintGrey", plinth="paintGrey", fascia="paint",
+                      soffit="timberSoffit", windowFrame="teak", doorMain="teak", railing="glass", compoundWall="paint", paving="paverGrass")
+TEAK_ZONES = [
+    dict(face="front", floor=1, from_=2.7, to=4.45, role="wallAccent1"),   # teak cladding, left wing
+    dict(face="front", floor=0, from_=-0.2, to=2.87, role="wallAccent2"),  # grey kitchen block
+    dict(face="front", floor=1, from_=-0.2, to=2.86, role="wallAccent2"),  # its parapet
+    dict(face="left", floor=0, role="wallAccent2", from_=0.4, to=8.2),
+    dict(face="left", floor=1, role="wallAccent2", from_=0.4, to=8.2, y0=3.4, y1=4.7),
+]
+
+def teak_plants(seed):
+    return [
+        # coconut palms and big trees behind and beside the house
+        plant("palm", -2.3, 9.0, s=1.35), plant("palm", 0.6, -3.2, s=1.3), plant("palm", 5.6, -3.4, s=1.45), plant("palm", 9.8, -3.0, s=1.2),
+        plant("palm", 17.4, -3.2, s=1.4), plant("palm", 19.8, 0.6, s=1.25),
+        plant("rainTree", -2.4, 2.0, s=1.1), plant("rainTree", 13.6, -3.3, s=1.2),
+        # banana-leaf clumps down both sides, beds at the front walls
+        *[plant("alocasia", -2.8, round(3.5 + i * 1.1, 2), s=1.45) for i in range(8)],
+        *[plant("alocasia", 20.15, round(-2.5 + i * 1.2, 2), s=1.45) for i in range(5)],
+        *bed("heliconia", 0.1, 2.6, 8.55, 3, s=0.9, seed=seed + 1), *bed("alocasia", 4.2, 6.0, 9.2, 3, s=0.85, seed=seed + 2),
+        *bed("fern", 4.0, 6.0, 9.75, 3, s=0.75, seed=seed + 3), *bed("alocasia", 12.6, 15.8, 7.9, 6, s=0.9, seed=seed + 4),
+        plant("potted", 2.6, 8.9, s=0.9), plant("tropical", 7.15, 10.75, s=0.9), plant("tropical", 6.5, 10.75, s=0.75),
+        *[dict(type="tropical", x=round(8.0 + i * 1.3, 2), z=8.35, y=ROOF + 0.3, scale=0.45) for i in range(3)],
+    ]
+
+def teak_style(id, name, subtitle, description, landscape, lighting, camera):
+    return dict(id=id, name=name, subtitle=subtitle, description=description, swatch=["#f2f0eb", "#b8703f", "#9c9a96", "#2e3033"],
+                materials=TEAK_MATERIALS, wallZones=[dict(z) for z in TEAK_ZONES], roofs=TEAK_ROOFS, elements=teak_gable_facade(),
+                landscape=landscape, lighting=lighting, introCamera=camera)
+
+TEAK_LIGHTS = [dict(x=1.55, y=3.0, z=8.4, intensity=2.0, distance=3.0), dict(x=9.4, y=3.0, z=9.4, intensity=3.0, distance=5.0),
+               dict(x=14.1, y=6.4, z=8.2, intensity=2.5, distance=3.5), dict(x=11.4, y=5.0, z=8.9, intensity=1.8, distance=3.0),
+               dict(x=14.1, y=2.9, z=8.0, intensity=2.5, distance=4.0), dict(x=3.6, y=6.0, z=10.3, intensity=1.5, distance=3.0),
+               dict(x=18.0, y=3.1, z=7.0, intensity=2.0, distance=4.5)]
+
+# 4: the straight front elevation on a wet monsoon evening: rain-dark sky, a mirror-wet driveway up to the steps
+teak_front = teak_style(
+    "teak-gable", "Teak Gable Villa", "Monsoon Evening",
+    "Teak-clad gable, white box windows, grey balcony frame and a long white portal, on a rain-wet evening.",
+    dict(plants=teak_plants(21), road=dict(x1=8.0, z1=12.2, x2=10.9, z2=17.9, reflect=True)),
+    dict(sun=[-18, 20, 30], sunColor="#ffe4c8", sunIntensity=1.2, hemi=["#d2d8df", "#4f5f3c", 0.9], ambient=0.24, exposure=0.92,
+         sky=dict(turbidity=10, rayleigh=2.6, mieCoefficient=0.012, mieDirectionalG=0.7), background="#b4bbc3", fog="#bec5cc",
+         clouds=dict(count=12, opacity=0.9, color="#dfe3e8", height=30), facadeLights=TEAK_LIGHTS),
+    dict(pos=[9.44, 1.9, 17.8], target=[9.6, 5.2, 6.0]),
+)
+# 5: the three-quarter view across the lawn at dusk, wet drive on the left, carport on the right
+teak_garden = teak_style(
+    "teak-gable-garden", "Teak Gable Garden", "Lawn & Carport, Dusk",
+    "The same teak gable villa seen across the lawn: soft overcast dusk, carport portal, wet side driveway.",
+    dict(plants=teak_plants(41), road=dict(x1=0.4, z1=12.2, x2=4.8, z2=17.9, reflect=True)),
+    dict(sun=[-26, 26, 34], sunColor="#ffd9b0", sunIntensity=1.6, hemi=["#dce2e8", "#58693f", 0.8], ambient=0.2, exposure=0.98,
+         sky=dict(turbidity=8, rayleigh=2.2, mieCoefficient=0.01, mieDirectionalG=0.75), background="#c2c8cf", fog="#cbd1d7",
+         clouds=dict(count=10, opacity=0.8, color="#eef0f2", height=32), facadeLights=TEAK_LIGHTS),
+    dict(pos=[18.6, 1.9, 17.4], target=[7.8, 4.2, 5.5]),
+)
+
 def fix(st):
     # "from" is a Python keyword: wall zones are written with from_ above
     st["wallZones"] = [{("from" if k == "from_" else k): v for k, v in z.items()} for z in st["wallZones"]]
     return st
 
 os.makedirs(OUT, exist_ok=True)
-for st in (concrete_gable, kerala_tile):
+for st in (concrete_gable, kerala_tile, teak_front, teak_garden):
     json.dump(fix(st), open(os.path.join(OUT, st["id"] + ".json"), "w"), indent=1)
     print(st["id"], len(st["elements"]), "elements,", len(st["roofs"]), "roofs,", len(st["landscape"]["plants"]), "plants")

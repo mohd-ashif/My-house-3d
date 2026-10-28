@@ -2,10 +2,12 @@
 import modernTropical from '@/data/styles/modern-tropical.json';
 import concreteGable from '@/data/styles/concrete-gable.json';
 import keralaTile from '@/data/styles/kerala-tile.json';
+import teakGable from '@/data/styles/teak-gable.json';
+import teakGableGarden from '@/data/styles/teak-gable-garden.json';
 import type { StyleDef } from './types';
 import { storage } from './device';
 
-export const STYLES: StyleDef[] = [modernTropical, concreteGable, keralaTile] as unknown as StyleDef[];
+export const STYLES: StyleDef[] = [modernTropical, concreteGable, keralaTile, teakGable, teakGableGarden] as unknown as StyleDef[];
 export const DEFAULT_STYLE = STYLES[0].id;
 const KEY = 'house-style';
 
