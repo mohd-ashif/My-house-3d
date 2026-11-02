@@ -232,10 +232,12 @@ canvas { display: block; touch-action: none; }
   background: rgba(16,18,22,.82); border: 1px solid rgba(255,255,255,.16); backdrop-filter: blur(10px); font-weight: 600;
   font-size: 15px; pointer-events: none; animation: toast 2.2s ease both; white-space: nowrap; }
 @keyframes toast { 0% { opacity: 0; transform: translate(-50%, 8px); } 12%, 80% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
-.intro .choose { pointer-events: auto; margin: 4px 0 14px; max-width: min(680px, 100%); }
+.intro .choose { pointer-events: auto; margin: 4px 0 14px; max-width: min(1000px, 100%); }
+/* every design visible at once: cards share the row, and scroll only when even 128px each will not fit */
+.intro .design-cards.row .design-card { flex: 1 1 0; min-width: 128px; max-width: 200px; }
 .intro .choose-label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; opacity: .75; margin-bottom: 6px; }
 .intro .design-card { background: rgba(16,18,22,.55); backdrop-filter: blur(8px); }
-@media (max-height: 500px) { .intro .design-cards.row .design-card { flex-basis: 140px; } .intro .d-sub { display: none; } }
+@media (max-height: 500px) { .intro .design-cards.row .design-card { min-width: 120px; } .intro .d-sub { display: none; } }
 
 /* multiplayer */
 .name-field { pointer-events: auto; display: flex; flex-direction: column; gap: 6px; margin: 0 0 16px; max-width: 340px; }
