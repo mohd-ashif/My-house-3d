@@ -8,7 +8,8 @@ import type { HouseConfig, Room } from '@/lib/types';
 import { buildWorld } from '@/lib/world';
 import { groundHeight } from '@/lib/physics';
 import { player, keys, teleport, look, stopAuto, cinematic } from '@/lib/player';
-import { STYLES, styleById, initialStyle, rememberStyle, nextStyle } from '@/lib/styles';
+import { STYLES, styleById, rememberStyle, nextStyle } from '@/lib/styles';
+import { house, useHouse, setStyle, toggleNight } from '@/lib/houseState';
 import { setTextureDetail } from '@/lib/materials';
 import { roomAt } from '@/lib/physics';
 import { sceneRefs } from '@/lib/pick';
@@ -21,14 +22,18 @@ import {
 } from '@/lib/device';
 import Scene, { type Quality } from './Scene';
 import type { HudInfo, ViewMode } from './Player';
-import { useTour, stopSize } from './useTour';
+import { useTour, stopSize, tour as tourData } from './useTour';
 import DesktopHud from './ui/DesktopHud';
 import MobileHud, { RotateHint, type MobileSettings } from './ui/MobileHud';
 import TouchControls from './ui/TouchControls';
-import { Loader, NoWebGL, ContextLost, Onboarding, TourCard, Intro } from './ui/Overlays';
+import { Loader, NoWebGL, ContextLost, Onboarding, TourCard, AwayCard, Intro } from './ui/Overlays';
 import { DesignPanel, Toast } from './ui/Design';
-import { OnlinePanel } from './ui/Online';
-import { connect, disconnect, onMpChange } from '@/lib/multiplayer';
+import { OnlinePanel, FollowPill } from './ui/Online';
+import { EmoteWheel, EmoteMenu, SelfReactions } from './ui/Emotes';
+import { playEmote, react, EMOTES, REACTIONS, type Emote } from '@/lib/emotes';
+import { startFollowing, stopFollowing, following, useFollowing, onFollowEnd } from '@/lib/follow';
+import { connect, disconnect, onMpChange, linkedRoom, rememberRoom, newRoomCode, roomId, send, peers, mp, useMultiplayer, useMpMessage, PUBLIC_ROOM } from '@/lib/multiplayer';
+import { useGroupTour, groupRole, setTourMoves, startGroupTour, leaveGroup, rejoinGroup, onGroupNotice } from '@/lib/groupTour';
 
 const cfg = houseJson as unknown as HouseConfig;
 
@@ -66,7 +71,7 @@ function Walkthrough() {
   const [entered, setEntered] = useState(false);
   const [ready, setReady] = useState(false);
   const [view, setView] = useState<ViewMode>('third');
-  const [night, setNight] = useState(false);
+  const night = useHouse((s) => s.night);
   const [quality, setQuality] = useState<Quality>(() =>
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('q') === 'low' ? 'low' : 'auto');
   const [autoTier, setAutoTier] = useState<Tier>(() => {
@@ -92,8 +97,9 @@ function Walkthrough() {
   });
   const canvasEl = useRef<HTMLCanvasElement | null>(null);
   const pendingTour = useRef(false);
+  const pendingGroup = useRef(false); // "Start group tour" on the intro: start it once we are the new room's host
   // ---------- exterior design ----------
-  const [styleId, setStyleId] = useState<string>(() => initialStyle());
+  const styleId = useHouse((s) => s.styleId);
   const [designOpen, setDesignOpen] = useState(false);
   const [toast, setToast] = useState({ text: '', stamp: 0 });
   const [thumbs, setThumbs] = useState<Record<string, string>>(() => {
@@ -102,22 +108,35 @@ function Walkthrough() {
     return t;
   });
   const [playerName, setPlayerName] = useState(() => storage.get('house-name') ?? '');
-  const tour = useTour(world);
+  // multiplayer room: 'public', or a private code (a ?room= link fills in the join box)
+  const [room, setRoom] = useState(PUBLIC_ROOM);
+  const [joinCode, setJoinCode] = useState(() => linkedRoom() ?? '');
+  // a group tour's followers walk it without a clock of their own: the host's updates move them on (lib/groupTour.ts)
+  const group = useGroupTour();
+  const tour = useTour(world, { clock: group.role !== 'follower' });
   const tourRef = useRef(tour); tourRef.current = tour;
+  useEffect(() => { setTourMoves({ hop: tour.hop, toStart: tour.toStart }); return () => setTourMoves(null); }, [tour.hop, tour.toStart]);
+  const startGroup = () => startGroupTour(tourRef.current.start);
+  /** Walking yourself pauses the tour, or, following a group tour, leaves the group. */
+  const interruptTour = () => { if (groupRole() === 'follower') leaveGroup(); else tourRef.current.pause(); };
+  const interruptRef = useRef(interruptTour); interruptRef.current = interruptTour;
 
-  const selectStyle = useCallback((id: string) => {
-    if (id === styleRef.current) return;
-    setStyleId(id);
-    rememberStyle(id);
-    const st = styleById(id);
+  const selectStyle = setStyle;
+  const styleRef = useRef(styleId); styleRef.current = styleId;
+  const enteredRef = useRef(entered); enteredRef.current = entered;
+  const selectRef = useRef(selectStyle); selectRef.current = selectStyle;
+  // a new design, from any source: remember it, say so, and fly out to its hero shot when outside
+  const shownStyle = useRef(styleId);
+  useEffect(() => {
+    if (styleId === shownStyle.current) return;
+    shownStyle.current = styleId;
+    rememberStyle(styleId);
+    const st = styleById(styleId);
     setToast({ text: `${st.name} · ${st.subtitle}`, stamp: Date.now() });
     // outside (or on the intro) the camera flies out to the new design's hero shot; inside, only the façade swaps
     const { room } = roomAt(world, player.x, player.z, player.feet);
     if (enteredRef.current && (!room || (room.kind ?? 'room') === 'outdoor')) cinematic.remaining = 2.6;
-  }, [world]);
-  const styleRef = useRef(styleId); styleRef.current = styleId;
-  const enteredRef = useRef(entered); enteredRef.current = entered;
-  const selectRef = useRef(selectStyle); selectRef.current = selectStyle;
+  }, [styleId, world]);
 
   // thumbnails: rendered offscreen once per design, kept in localStorage
   const wantThumbs = ready && (designOpen || menuOpen || (!entered && tier !== 'low'));
@@ -129,9 +148,9 @@ function Walkthrough() {
 
   useEffect(() => {
     if (world.warnings.length) console.warn('[house.json]', world.warnings);
-    // handy for debugging in the browser console: __house.player, __house.world
+    // handy for debugging in the browser console: __house.player, __house.world, __house.state.get()
     const w = window as unknown as { __house?: Record<string, unknown> };
-    w.__house = Object.assign(w.__house ?? {}, { player, world, cinematic, sceneRefs });
+    w.__house = Object.assign(w.__house ?? {}, { player, world, cinematic, sceneRefs, state: house });
     const { x, z, yaw } = cfg.spawn;
     teleport(x, z, groundHeight(world, x, z, 0.6), yaw ?? 0);
   }, [world]);
@@ -182,10 +201,13 @@ function Walkthrough() {
     const down = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.tagName === 'INPUT') return; // typing a name, not walking
       keys.add(e.code);
-      if (MOVE.has(e.code)) tourRef.current.pause(); // walking yourself pauses the guided tour
+      if (MOVE.has(e.code)) interruptRef.current(); // walking yourself pauses the guided tour (or leaves the group)
       if (e.code === 'KeyC') setView((v) => (v === 'first' ? 'third' : 'first'));
-      if (e.code === 'KeyN') setNight((n) => !n);
+      if (e.code === 'KeyN') toggleNight();
       if (e.code === 'KeyV' && !e.repeat) selectRef.current(nextStyle(styleRef.current)); // V cycles designs
+      // 1-5 emote, 6-0 react
+      const digit = /^Digit\d$/.test(e.code) && !e.repeat && enteredRef.current ? (Number(e.code[5]) + 9) % 10 : -1;
+      if (digit >= 0) { if (digit < EMOTES.length) emoteRef.current(EMOTES[digit]); else react(REACTIONS[digit - EMOTES.length]); }
       if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
     };
     const up = (e: KeyboardEvent) => keys.delete(e.code);
@@ -236,29 +258,75 @@ function Walkthrough() {
 
   const press = (fn: () => void) => () => { if (mobile) haptic(8); uiClick(); fn(); };
 
+  // ---------- emotes + reactions ----------
+  const emote = (e: Emote) => {
+    if (playEmote(e) === 'moving') setToast({ text: 'Stand still to emote', stamp: Date.now() });
+  };
+  const emoteRef = useRef(emote); emoteRef.current = emote;
+
   const toSpawn = () => {
     const { x, z, yaw } = cfg.spawn;
     teleport(x, z, groundHeight(world, x, z, 0.6), yaw ?? 0);
   };
 
-  // ---------- multiplayer: join/leave notices ----------
+  // ---------- multiplayer: join/leave notices, follow mode ----------
   useEffect(() => onMpChange((e) => {
+    if (e?.type === 'leave' && following()?.id === e.id) { stopFollowing('left'); return; } // its own notice, below
     if (e) setToast({ text: e.type === 'join' ? `${e.name} entered the house` : `${e.name} left`, stamp: Date.now() });
   }), []);
-  useEffect(() => () => disconnect(), []);
+  useEffect(() => onFollowEnd((why, name) => {
+    if (why === 'left') setToast({ text: `${name} left · stopped following`, stamp: Date.now() });
+  }), []);
+  useEffect(() => () => { stopFollowing(); disconnect(); }, []);
+  useEffect(() => onGroupNotice((n) => {
+    setToast({ text: n.type === 'started' ? `${n.by || 'The host'} started a group tour` : 'The group tour has ended', stamp: Date.now() });
+  }), []);
+  useMpMessage('room:host', (m) => {
+    if (m.reason === 'back' || mp.room === PUBLIC_ROOM || !m.hostId) return;
+    const who = m.hostId === mp.selfId ? 'You are' : `${peers.get(m.hostId)?.name ?? 'Someone'} is`;
+    setToast({ text: `${who} now the host${m.reason === 'left' ? ' (the host left)' : ''}`, stamp: Date.now() });
+  });
+  const mpView = useMultiplayer();
+  // "Start group tour" from the intro: once the new room says we are its host (and any first-time tips are closed)
+  useEffect(() => {
+    if (pendingGroup.current && group.canLead && !onboarding) { pendingGroup.current = false; startGroup(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group.canLead, onboarding]);
+  const followed = useFollowing();
+  const follow = (id: string) => {
+    interruptTour(); // the tour and the follower would both steer
+    stopAuto();
+    startFollowing(world, id);
+  };
 
-  const enter = (mode: 'free' | 'tour') => {
+  const enter = (mode: 'free' | 'tour', to: string = PUBLIC_ROOM) => {
     if (mobile) { void enterFullscreen().then(lockLandscape); haptic(10); }
     toSpawn();
     setEntered(true);
     let name = playerName.replace(/\s+/g, ' ').trim().slice(0, 20);
     if (!name) { name = `Guest ${Math.floor(100 + Math.random() * 900)}`; setPlayerName(name); }
     storage.set('house-name', name);
-    connect(name);
+    connect(name, to);
+    setRoom(to);
+    rememberRoom(to);
     requestLock();
     const firstTime = mobile && !storage.get('house-onboarding-seen');
     if (firstTime) setOnboarding(true);
     if (mode === 'tour') { if (firstTime) pendingTour.current = true; else tour.start(); }
+  };
+
+  const createGroupTour = () => {
+    pendingGroup.current = true;
+    createRoom();
+  };
+  const createRoom = () => {
+    const code = newRoomCode();
+    setJoinCode(code);
+    enter('free', code);
+  };
+  const joinRoom = () => {
+    const id = roomId(joinCode);
+    if (id) enter('free', id);
   };
 
   const closeOnboarding = () => {
@@ -270,21 +338,24 @@ function Walkthrough() {
   const exit = () => {
     if (document.pointerLockElement) document.exitPointerLock();
     keys.clear();
+    stopFollowing();
+    disconnect(); // first: a host walking out leaves the group tour running for the next host, rather than ending it
     tour.exit();
-    disconnect();
+    pendingGroup.current = false;
     setMenu(false); setMap(false);
     setEntered(false);
   };
 
   const goRoom = (r: Room) => {
-    tour.pause();
+    interruptTour();
     stopAuto();
+    stopFollowing('manual');
     const level = cfg.floors[r.floor].y;
     const [x, z] = freeSpot(world, (r.x1 + r.x2) / 2, (r.z1 + r.z2) / 2, level);
     teleport(x, z, level);
   };
   const goTo = (id: string) => {
-    if (id === '__outside') { tour.pause(); toSpawn(); return; }
+    if (id === '__outside') { interruptTour(); stopFollowing('manual'); toSpawn(); return; }
     const r = cfg.rooms.find((q) => q.id === id);
     if (r) goRoom(r);
   };
@@ -300,9 +371,15 @@ function Walkthrough() {
   };
 
   const stopInfo = tour.state.active ? tour.stop : null;
+  const awayStop = group.role === 'away' ? tourData.stops[group.step] : null;
+  // the guided-tour entry in the phone menu: lead a group tour as host, rejoin one, or a solo tour
+  const tourAction = group.canLead
+    ? { label: 'Group tour', value: group.active ? 'Restart' : 'Start', run: startGroup }
+    : group.role === 'away' ? { label: 'Group tour', value: 'Rejoin', run: rejoinGroup }
+      : group.role === 'follower' ? null : { label: 'Guided tour', value: 'Restart', run: () => tour.start() };
 
   return (
-    <div className={`root${mobile ? ' is-touch' : ''}`} data-tier={tier} data-quality={quality} onContextMenu={mobile ? (e) => e.preventDefault() : undefined}>
+    <div className={`root${mobile ? ' is-touch' : ''}${followed ? ' following' : ''}${stopInfo || awayStop ? ' touring' : ''}`} data-tier={tier} data-quality={quality} onContextMenu={mobile ? (e) => e.preventDefault() : undefined}>
       <Canvas
         frameloop={frameloop}
         shadows={tier !== 'low'}
@@ -335,29 +412,35 @@ function Walkthrough() {
       {lost && <ContextLost />}
       {shot ? null : !entered ? (
         <Intro name={cfg.name} ready={ready} mobile={mobile} onTour={() => enter('tour')} onFree={() => enter('free')}
-          styles={STYLES} styleId={styleId} thumbs={thumbs} onStyle={selectStyle} playerName={playerName} onPlayerName={setPlayerName} />
+          styles={STYLES} styleId={styleId} thumbs={thumbs} onStyle={selectStyle} playerName={playerName} onPlayerName={setPlayerName}
+          joinCode={joinCode} onJoinCode={setJoinCode} onCreateRoom={createRoom} onJoinRoom={joinRoom} onGroupTour={createGroupTour} />
       ) : (
         <>
           {mobile ? (
             <>
-              <TouchControls world={world} onManualMove={() => tourRef.current.pause()} onToggleView={() => setView((v) => (v === 'first' ? 'third' : 'first'))} />
+              <TouchControls world={world} onManualMove={() => { interruptTour(); stopFollowing('manual'); }} onToggleView={() => setView((v) => (v === 'first' ? 'third' : 'first'))} />
               {view === 'first' && <div className="crosshair" />}
               <MobileHud world={world} floorName={cfg.floors[hud.floor]?.name ?? ''} room={hud.room} floor={hud.floor} view={view} night={night}
                 quality={quality} settings={settings} fs={fs} fsAvailable={fsOk} menuOpen={menuOpen} mapOpen={mapOpen}
                 setMenu={(o) => { if (o) { haptic(8); uiClick(); } setMenu(o); }} setMap={(o) => { if (o) haptic(8); setMap(o); }}
                 onRoom={goRoom} onOutside={() => goTo('__outside')}
-                onView={press(() => setView((v) => (v === 'first' ? 'third' : 'first')))} onNight={press(() => setNight((n) => !n))}
+                onView={press(() => setView((v) => (v === 'first' ? 'third' : 'first')))} onNight={press(() => toggleNight())}
                 onQuality={(q) => { haptic(8); setQuality(q); if (q === 'auto') setAutoTier(detectTier()); }}
                 onSetting={(k) => { haptic(8); void toggleSetting(k); }} onFullscreen={press(toggleFs)}
-                onRestartTour={press(() => tour.start())} onIntro={press(exit)}
-                styles={STYLES} styleId={styleId} thumbs={thumbs} onStyle={(id) => { haptic(8); setMenu(false); selectStyle(id); }} />
+                tourAction={tourAction && { label: tourAction.label, value: tourAction.value }}
+                onRestartTour={press(() => tourAction?.run())} onIntro={press(exit)}
+                styles={STYLES} styleId={styleId} thumbs={thumbs} onStyle={(id) => { haptic(8); setMenu(false); selectStyle(id); }} roomCode={room} />
+              {!menuOpen && !mapOpen && <EmoteWheel onEmote={(e) => { haptic(8); uiClick(); emote(e); }} onReact={(r) => { haptic(8); uiClick(); react(r); }} />}
               {portrait && !rotateDismissed && !onboarding && !menuOpen && !mapOpen && <RotateHint onClose={() => setRotateDismissed(true)} />}
             </>
           ) : (
             <DesktopHud world={world} cfg={cfg} hud={hud} view={view} night={night} quality={quality} locked={locked}
-              onGo={goTo} onView={() => setView((v) => (v === 'first' ? 'third' : 'first'))} onNight={() => setNight((n) => !n)}
+              onGo={goTo} onView={() => setView((v) => (v === 'first' ? 'third' : 'first'))} onNight={() => toggleNight()}
               onQuality={() => setQuality((q) => (q === 'auto' ? 'high' : q === 'high' ? 'low' : 'auto'))} onExit={exit}
-              designOpen={designOpen} onDesign={() => setDesignOpen((o) => !o)} />
+              designOpen={designOpen} onDesign={() => setDesignOpen((o) => !o)} roomCode={room}>
+              {group.canLead && <button className="btn" onClick={startGroup}>👥 {group.active ? 'Restart group tour' : 'Start group tour'}</button>}
+              <EmoteMenu onEmote={emote} onReact={(r) => { react(r); }} />
+            </DesktopHud>
           )}
           {!mobile && designOpen && (
             <DesignPanel styles={STYLES} active={styleId} thumbs={thumbs} onPick={(id) => selectStyle(id)} onClose={() => setDesignOpen(false)} />
@@ -365,9 +448,18 @@ function Walkthrough() {
           {stopInfo && !menuOpen && !mapOpen && (
             <TourCard title={stopInfo.title} size={stopSize(world, stopInfo)} text={stopInfo.text} index={tour.state.index} count={tour.count}
               phase={tour.state.phase} paused={tour.state.paused}
-              onPause={press(tour.pause)} onResume={press(tour.resume)} onNext={press(tour.next)} onExit={press(tour.exit)} onRestart={press(tour.start)} />
+              group={group.role === 'host' || group.role === 'follower' ? { role: group.role, hostName: group.hostName, guests: mpView.peers.length } : undefined}
+              onPause={press(tour.pause)} onResume={press(tour.resume)} onNext={press(tour.next)} onExit={press(tour.exit)}
+              onRestart={press(group.role === 'host' ? startGroup : tour.start)} onLeave={press(leaveGroup)} />
           )}
-          {!menuOpen && !mapOpen && <OnlinePanel selfName={playerName} max={mobile ? 3 : 8} />}
+          {awayStop && !menuOpen && !mapOpen && (
+            <AwayCard title={awayStop.title} index={group.step} count={tour.count} hostName={group.hostName} done={group.phase === 'done'} onRejoin={press(rejoinGroup)} />
+          )}
+          {!menuOpen && !mapOpen && <OnlinePanel selfName={playerName} max={mobile ? 3 : 8} followingId={followed?.id ?? null}
+            onFollow={(id) => { if (mobile) haptic(8); uiClick(); follow(id); }} onUnfollow={press(() => stopFollowing())}
+            onMakeHost={(id) => { if (mobile) haptic(8); uiClick(); send('room:host', { id }); }} />}
+          {followed && !menuOpen && !mapOpen && <FollowPill name={followed.name} onStop={press(() => stopFollowing())} />}
+          {view === 'first' && <SelfReactions />}
           {onboarding && <Onboarding onDone={closeOnboarding} />}
         </>
       )}

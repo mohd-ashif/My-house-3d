@@ -1,6 +1,7 @@
 'use client';
 import { forwardRef, useRef, type ReactNode, type RefObject } from 'react';
 import * as THREE from 'three';
+import type { EmotePose, LimbPose } from '@/lib/emotes';
 
 // The procedural man, shared by this visitor's character and everyone else's.
 const skin = new THREE.MeshStandardMaterial({ color: '#b27b57', roughness: 0.6 });
@@ -15,12 +16,22 @@ export function useLimbs(): Limbs {
   return { legL: useRef<THREE.Group>(null), legR: useRef<THREE.Group>(null), armL: useRef<THREE.Group>(null), armR: useRef<THREE.Group>(null) };
 }
 
-/** Walk cycle: `swing` is sin(phase) * stride amount. */
-export function poseLimbs(l: Limbs, swing: number) {
-  if (l.legL.current) l.legL.current.rotation.x = swing;
-  if (l.legR.current) l.legR.current.rotation.x = -swing;
-  if (l.armL.current) l.armL.current.rotation.x = -swing * 0.8;
-  if (l.armR.current) l.armR.current.rotation.x = swing * 0.8;
+const blend = (g: THREE.Group | null, walkX: number, p: LimbPose | undefined, w: number) => {
+  if (!g) return;
+  g.rotation.x = walkX + ((p?.x ?? 0) - walkX) * w;
+  g.rotation.z = (p?.z ?? 0) * w;
+};
+
+/**
+ * Walk cycle (`swing` is sin(phase) * stride amount), with an emote pose (lib/emotes.ts) blended over it by `w` (0-1).
+ * The pose's body drop and turn are the caller's to apply.
+ */
+export function poseLimbs(l: Limbs, swing: number, emote: EmotePose | null = null, w = 0) {
+  const k = emote ? w : 0;
+  blend(l.legL.current, swing, emote?.legL, k);
+  blend(l.legR.current, -swing, emote?.legR, k);
+  blend(l.armL.current, -swing * 0.8, emote?.armL, k);
+  blend(l.armR.current, swing * 0.8, emote?.armR, k);
 }
 
 export const Avatar = forwardRef<THREE.Group, { limbs: Limbs; shirt?: THREE.Material; shadows?: boolean; children?: ReactNode }>(

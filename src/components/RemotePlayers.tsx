@@ -1,53 +1,61 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { peers, onMpChange, type Peer } from '@/lib/multiplayer';
+import { peers, useMultiplayer } from '@/lib/multiplayer';
+import { sampleTrack, type Pose } from '@/lib/interp';
+import { newEmoteAnim, stepEmote, STILL } from '@/lib/emotes';
 import { Avatar, useLimbs, poseLimbs } from './Avatar';
+import { HeadReactions } from './Reactions';
 
-const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 const ease = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+// speeds (m/s) as the local player moves: walking 1.9, running 4.2
+const IDLE_BELOW = 0.2, RUN_FROM = 2.6, RUN_FULL = 3.8;
 
 /** Everyone else in the house, walking where they walk, with their name over their head. */
 export default function RemotePlayers() {
-  const [ids, setIds] = useState<string[]>([]);
-  useEffect(() => {
-    const sync = () => setIds([...peers.keys()]);
-    sync();
-    return onMpChange(sync);
-  }, []);
-  return <>{ids.map((id) => <RemoteAvatar key={id} id={id} />)}</>;
+  const { peers: list } = useMultiplayer();
+  return <>{list.map((p) => <RemoteAvatar key={p.id} id={p.id} />)}</>;
 }
 
 function RemoteAvatar({ id }: { id: string }) {
-  const peer = peers.get(id) as Peer | undefined;
+  const peer = peers.get(id);
   const body = useRef<THREE.Group>(null);
   const limbs = useLimbs();
-  const shown = useRef<{ x: number; f: number; z: number; y: number } | null>(null);
-  const phase = useRef(Math.random() * 6);
+  const pose = useRef<Pose>({ x: 0, f: 0, z: 0, y: 0, s: 0 });
+  const anim = useRef({ phase: Math.random() * 6, stride: 0, run: 0, idle: Math.random() * 6 });
+  const emote = useRef(newEmoteAnim());
   const shirt = useMemo(() => new THREE.MeshStandardMaterial({ color: peer?.color ?? '#888888', roughness: 0.9 }), [peer?.color]);
   useEffect(() => () => shirt.dispose(), [shirt]);
+  useEffect(() => { if (body.current) body.current.rotation.order = 'YXZ'; }, []); // lean forward in the body's own frame
 
   useFrame((_, rawDt) => {
     const p = peers.get(id);
     const g = body.current;
     if (!p || !g) return;
     const dt = Math.min(rawDt, 0.05);
-    // updates arrive 10x per second: glide towards the latest one, snap on teleports
-    const s = shown.current;
-    if (!s || Math.hypot(p.x - s.x, p.z - s.z) > 3 || Math.abs(p.f - s.f) > 2) shown.current = { x: p.x, f: p.f, z: p.z, y: p.y };
-    else {
-      const k = ease(12, dt);
-      s.x += (p.x - s.x) * k; s.z += (p.z - s.z) * k; s.f += (p.f - s.f) * k;
-      s.y += wrap(p.y - s.y) * ease(10, dt);
-    }
-    const c = shown.current!;
-    const walkAmt = Math.min(1, p.s / 2);
-    phase.current += dt * (2 + p.s * 2.4);
-    poseLimbs(limbs, Math.sin(phase.current) * 0.55 * walkAmt);
-    g.position.set(c.x, c.f + Math.abs(Math.sin(phase.current)) * 0.03 * walkAmt, c.z);
-    g.rotation.y = c.y;
+    const c = pose.current;
+    // ~100 ms behind, blended between buffered updates (lib/interp.ts); before the first one, where they joined
+    if (!sampleTrack(p.track, performance.now(), c)) { c.x = p.x; c.f = p.f; c.z = p.z; c.y = p.y; c.s = p.s; }
+
+    // idle / walk / run from their speed, eased so a change of pace never pops
+    const a = anim.current;
+    const moving = c.s > IDLE_BELOW;
+    a.stride += ((moving ? Math.min(1, c.s / 1.9) : 0) - a.stride) * ease(8, dt);
+    a.run += (clamp01((c.s - RUN_FROM) / (RUN_FULL - RUN_FROM)) - a.run) * ease(6, dt);
+    a.phase += dt * (2 + c.s * 2.4); // the local player's cadence (Player.tsx)
+    a.idle += dt;
+    const swing = Math.sin(a.phase) * (0.55 + 0.35 * a.run) * a.stride;
+    const breathe = (1 - a.stride) * Math.sin(a.idle * 1.7) * 0.05; // arms drift a little while standing
+    // an emote over the top, started in step with their (delayed) walking; seeing them walk off ends it
+    const w = stepEmote(emote.current, id, performance.now(), dt, c.s > STILL);
+    const ep = emote.current.pose;
+    poseLimbs(limbs, swing + breathe, ep, w);
+    const bob = Math.abs(Math.sin(a.phase)) * (0.03 + 0.03 * a.run) * a.stride;
+    g.position.set(c.x, c.f + bob - ep.drop * w, c.z);
+    g.rotation.set(-0.14 * a.run, c.y + ep.yaw * w, 0);
   });
 
   if (!peer) return null;
@@ -57,6 +65,7 @@ function RemoteAvatar({ id }: { id: string }) {
       <Html position={[0, 2.12, 0]} center distanceFactor={9} zIndexRange={[5, 0]} style={{ pointerEvents: 'none' }}>
         <div className="nametag" style={{ borderColor: peer.color }}>{peer.name}</div>
       </Html>
+      <HeadReactions id={id} />
     </Avatar>
   );
 }

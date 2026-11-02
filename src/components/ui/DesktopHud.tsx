@@ -1,12 +1,12 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import type { World } from '@/lib/world';
 import type { HouseConfig } from '@/lib/types';
 import { player } from '@/lib/player';
 import type { Quality } from '../Scene';
 import type { ViewMode } from '../Player';
 import { peers } from '@/lib/multiplayer';
-import { usePeers } from './Online';
+import { usePeers, RoomCode } from './Online';
 
 /** Other visitors on this floor, as dots in their shirt colour. */
 function PeerDots({ floorY, nextY }: { floorY: number; nextY: number }) {
@@ -74,11 +74,11 @@ function Minimap({ world, floor }: { world: World; floor: number }) {
   );
 }
 
-/** The original desktop HUD (unchanged layout): room card, button row, minimap, hint bar. */
-export default function DesktopHud({ world, cfg, hud, view, night, quality, locked, onGo, onView, onNight, onQuality, onExit, designOpen, onDesign }: {
+/** The original desktop HUD: room card, button row (`children` go first in it), minimap, hint bar. */
+export default function DesktopHud({ world, cfg, hud, view, night, quality, locked, onGo, onView, onNight, onQuality, onExit, designOpen, onDesign, roomCode, children }: {
   world: World; cfg: HouseConfig; hud: { room: string; floor: number }; view: ViewMode; night: boolean; quality: Quality; locked: boolean;
   onGo: (id: string) => void; onView: () => void; onNight: () => void; onQuality: () => void; onExit: () => void;
-  designOpen: boolean; onDesign: () => void;
+  designOpen: boolean; onDesign: () => void; roomCode: string; children?: ReactNode;
 }) {
   return (
     <>
@@ -88,6 +88,8 @@ export default function DesktopHud({ world, cfg, hud, view, night, quality, lock
           <b>{hud.room}</b>
         </div>
         <div className="controls">
+          <RoomCode room={roomCode} />
+          {children}
           <select value="" onChange={(e) => onGo(e.target.value)} aria-label="Teleport to a room">
             <option value="" disabled>Go to room…</option>
             <option value="__outside">Outside: front gate</option>
@@ -105,7 +107,7 @@ export default function DesktopHud({ world, cfg, hud, view, night, quality, lock
       <Minimap world={world} floor={hud.floor} />
       {view === 'first' && <div className="crosshair" />}
       <div className="hint">
-        {locked ? 'WASD walk · Shift run · Mouse look · C camera · N night · Esc free mouse' : 'Click to look around with the mouse · WASD to walk'}
+        {locked ? 'WASD walk · Shift run · Mouse look · C camera · N night · 1–5 emote · 6–0 react · Esc free mouse' : 'Click to look around with the mouse · WASD to walk'}
       </div>
     </>
   );

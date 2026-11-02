@@ -8,7 +8,10 @@ import { groundHeight, resolve, pointBlocked, roomAt } from '@/lib/physics';
 import { shot } from '@/lib/shot';
 import { sceneRefs } from '@/lib/pick';
 import { footstep } from '@/lib/sound';
+import { stopFollowing } from '@/lib/follow';
+import { newEmoteAnim, stepEmote, SELF, STILL } from '@/lib/emotes';
 import { Avatar, useLimbs, poseLimbs } from './Avatar';
+import { HeadReactions } from './Reactions';
 
 export type ViewMode = 'third' | 'first';
 export interface HudInfo { room: string; floor: number }
@@ -35,6 +38,7 @@ export default function Player({ world, entered, view, mobile, hero, onHud }: {
   const introPos = useRef<THREE.Vector3 | null>(null);
   const introTgt = useRef(new THREE.Vector3());
   const fly = useRef(0); // 0 = normal camera, 1 = at the hero shot
+  const emote = useRef(newEmoteAnim());
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
@@ -93,7 +97,7 @@ export default function Player({ world, entered, view, mobile, hero, onHud }: {
     let str = (k('KeyD') ? 1 : 0) - (k('KeyA') ? 1 : 0) + player.joy.x;
     const turn = (k('ArrowLeft') ? 1 : 0) - (k('ArrowRight') ? 1 : 0);
     player.yaw += turn * dt * 1.8;
-    if (Math.hypot(fwd, str) > 0.08 || turn) stopAuto(); // manual input always wins over auto-walk
+    if (Math.hypot(fwd, str) > 0.08 || turn) { stopAuto(); stopFollowing('manual'); } // manual input always wins over auto-walk
     const len = Math.hypot(fwd, str);
     if (len > 1) { fwd /= len; str /= len; }
     const run = k('ShiftLeft') || k('ShiftRight') || player.run;
@@ -165,11 +169,13 @@ export default function Player({ world, entered, view, mobile, hero, onHud }: {
     phase.current += dt * (2 + player.speed * 2.4);
     if (walkAmt > 0.3 && Math.floor(phase.current / Math.PI) !== Math.floor(prevPhase / Math.PI)) footstep(0.12 + 0.12 * walkAmt);
     const swing = Math.sin(phase.current) * 0.55 * walkAmt;
-    poseLimbs(limbs, swing);
+    const ew = stepEmote(emote.current, SELF, performance.now(), dt, player.speed > STILL); // walking off ends an emote
+    const ep = emote.current.pose;
+    poseLimbs(limbs, swing, ep, ew);
     if (body.current) {
       body.current.visible = view === 'third';
-      body.current.position.set(x, player.eye - 1.62 + Math.abs(Math.sin(phase.current)) * 0.03 * walkAmt, z);
-      body.current.rotation.y = player.bodyYaw;
+      body.current.position.set(x, player.eye - 1.62 + Math.abs(Math.sin(phase.current)) * 0.03 * walkAmt - ep.drop * ew, z);
+      body.current.rotation.y = player.bodyYaw + ep.yaw * ew;
     }
 
     // ---------- camera ----------
@@ -230,5 +236,6 @@ export default function Player({ world, entered, view, mobile, hero, onHud }: {
     }
   });
 
-  return <Avatar ref={body} limbs={limbs} />;
+  // (in first person the UI shows your reactions instead: ui/Emotes.tsx)
+  return <Avatar ref={body} limbs={limbs}>{entered && view === 'third' && <HeadReactions id={SELF} />}</Avatar>;
 }

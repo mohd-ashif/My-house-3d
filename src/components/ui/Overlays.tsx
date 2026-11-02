@@ -5,6 +5,7 @@ import { Finger, HouseSilhouette, IconNext, IconPause, IconPlay, IconClose, Icon
 import type { TourPhase } from '../useTour';
 import type { StyleDef } from '@/lib/types';
 import { DesignCards } from './Design';
+import { roomId, CODE_LENGTH } from '@/lib/multiplayer';
 
 export function NoWebGL() {
   return (
@@ -80,20 +81,32 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   );
 }
 
-/** Guided-tour caption card + controls. */
+/** A group tour, from where this visitor stands: guiding it (host) or being guided (follower). */
+export interface TourGroup { role: 'host' | 'follower'; hostName: string; guests: number }
+
+const groupNote = (g?: TourGroup) => (!g ? '' : g.role === 'host' ? ` · guiding ${g.guests}` : ` · guided by ${g.hostName}`);
+
+/** Guided-tour caption card + controls. In a group tour only the host gets the controls; followers can leave the group. */
 export function TourCard(props: {
-  title: string; size: string; text: string; index: number; count: number; phase: TourPhase; paused: boolean;
-  onPause: () => void; onResume: () => void; onNext: () => void; onExit: () => void; onRestart: () => void;
+  title: string; size: string; text: string; index: number; count: number; phase: TourPhase; paused: boolean; group?: TourGroup;
+  onPause: () => void; onResume: () => void; onNext: () => void; onExit: () => void; onRestart: () => void; onLeave: () => void;
 }) {
+  const follower = props.group?.role === 'follower';
   if (props.phase === 'done') {
     return (
       <div className="tour-card glass" role="status">
-        <div className="tour-meta">Tour complete</div>
+        <div className="tour-meta">Tour complete{groupNote(props.group)}</div>
         <h2>Thanks for visiting</h2>
-        <p>Walk around on your own, or take the tour again.</p>
+        <p>{follower ? 'Walk around on your own; you stay in the room.' : 'Walk around on your own, or take the tour again.'}</p>
         <div className="tour-ctrls">
-          <button className="btn" onClick={props.onRestart} aria-label="Restart the guided tour"><IconRestart /> Restart</button>
-          <button className="btn primary" onClick={props.onExit} aria-label="Explore freely"><IconWalk /> Explore freely</button>
+          {follower ? (
+            <button className="btn primary" onClick={props.onLeave} aria-label="Explore freely"><IconWalk /> Explore freely</button>
+          ) : (
+            <>
+              <button className="btn" onClick={props.onRestart} aria-label={props.group ? 'Restart the tour for everyone' : 'Restart the guided tour'}><IconRestart /> Restart</button>
+              <button className="btn primary" onClick={props.onExit} aria-label={props.group ? 'End the group tour' : 'Explore freely'}><IconWalk /> {props.group ? 'End tour' : 'Explore freely'}</button>
+            </>
+          )}
         </div>
       </div>
     );
@@ -101,7 +114,7 @@ export function TourCard(props: {
   const walking = props.phase === 'walking';
   return (
     <div className={`tour-card glass${walking ? ' compact' : ''}`} role="status" aria-live="polite" key={`${props.index}-${walking}`}>
-      <div className="tour-meta">Stop {props.index + 1} of {props.count}{walking && !props.paused ? ' · walking…' : props.paused ? ' · paused' : ''}</div>
+      <div className="tour-meta">Stop {props.index + 1} of {props.count}{groupNote(props.group)}{walking && !props.paused ? ' · walking…' : props.paused ? ' · paused' : ''}</div>
       <h2>{props.title}</h2>
       {!walking && (
         <>
@@ -110,20 +123,62 @@ export function TourCard(props: {
         </>
       )}
       <div className="tour-ctrls">
-        <button className="icon-btn glass" onClick={props.paused ? props.onResume : props.onPause} aria-label={props.paused ? 'Resume the tour' : 'Pause the tour'}>
-          {props.paused ? <IconPlay /> : <IconPause />}
-        </button>
-        <button className="btn primary" onClick={props.onNext} aria-label="Next stop">Next <IconNext /></button>
-        <button className="icon-btn glass" onClick={props.onExit} aria-label="Exit the tour"><IconClose /></button>
+        {follower ? (
+          <button className="btn" onClick={props.onLeave} aria-label="Leave the group and explore on your own"><IconWalk /> Leave group</button>
+        ) : (
+          <>
+            <button className="icon-btn glass" onClick={props.paused ? props.onResume : props.onPause} aria-label={props.paused ? 'Resume the tour' : 'Pause the tour'}>
+              {props.paused ? <IconPlay /> : <IconPause />}
+            </button>
+            <button className="btn primary" onClick={props.onNext} aria-label="Next stop">Next <IconNext /></button>
+            <button className="icon-btn glass" onClick={props.onExit} aria-label={props.group ? 'End the group tour for everyone' : 'Exit the tour'}><IconClose /></button>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-export function Intro({ name, ready, mobile, onTour, onFree, styles, styleId, thumbs, onStyle, playerName, onPlayerName }: {
+/** Out of a group tour that is still going: where it is, and the way back in. */
+export function AwayCard({ title, index, count, hostName, done, onRejoin }: {
+  title: string; index: number; count: number; hostName: string; done: boolean; onRejoin: () => void;
+}) {
+  return (
+    <div className="tour-card glass compact" role="status">
+      <div className="tour-meta">Group tour · {done ? 'finished' : `stop ${index + 1} of ${count}`} · guided by {hostName}</div>
+      <h2>{done ? 'The group has seen everything' : title}</h2>
+      {!done && (
+        <div className="tour-ctrls">
+          <button className="btn primary" onClick={onRejoin} aria-label="Rejoin the group at its current stop"><IconRestart /> Rejoin group</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Create a private room, or type (or follow a link with) a code to join one. */
+function RoomButtons({ ready, joinCode, onJoinCode, onCreateRoom, onJoinRoom, onGroupTour }: {
+  ready: boolean; joinCode: string; onJoinCode: (c: string) => void; onCreateRoom: () => void; onJoinRoom: () => void; onGroupTour: () => void;
+}) {
+  const ok = !!roomId(joinCode);
+  return (
+    <>
+      <button className="btn" onClick={onCreateRoom} disabled={!ready} aria-label="Create a private room and get a code to share">Create room</button>
+      <button className="btn" onClick={onGroupTour} disabled={!ready} aria-label="Create a private room and guide everyone who joins through the house">Start group tour</button>
+      <form className="join-room" onSubmit={(e) => { e.preventDefault(); if (ready && ok) onJoinRoom(); }}>
+        <input value={joinCode} maxLength={CODE_LENGTH} placeholder="CODE" aria-label="Room code" autoComplete="off" autoCapitalize="characters"
+          spellCheck={false} enterKeyHint="go" onChange={(e) => onJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LENGTH))} />
+        <button className="btn" type="submit" disabled={!ready || !ok}>Join room</button>
+      </form>
+    </>
+  );
+}
+
+export function Intro({ name, ready, mobile, onTour, onFree, styles, styleId, thumbs, onStyle, playerName, onPlayerName, ...room }: {
   name: string; ready: boolean; mobile: boolean; onTour: () => void; onFree: () => void;
   styles: StyleDef[]; styleId: string; thumbs: Record<string, string>; onStyle: (id: string) => void;
   playerName: string; onPlayerName: (n: string) => void;
+  joinCode: string; onJoinCode: (c: string) => void; onCreateRoom: () => void; onJoinRoom: () => void; onGroupTour: () => void;
 }) {
   return (
     <div className={`intro${mobile ? ' m' : ''}`}>
@@ -151,6 +206,7 @@ export function Intro({ name, ready, mobile, onTour, onFree, styles, styleId, th
             <button className="btn" onClick={onTour} disabled={!ready} aria-label="Start the guided tour">Guided tour</button>
           </>
         )}
+        <RoomButtons ready={ready} {...room} />
       </div>
     </div>
   );

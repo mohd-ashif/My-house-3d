@@ -1,17 +1,17 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import tourJson from '@/data/tour.json';
 import type { World } from '@/lib/world';
 import { player, teleport, stopAuto } from '@/lib/player';
 import { groundHeight } from '@/lib/physics';
 import { findPath, levelOf } from '@/lib/nav';
+import { house, useHouse } from '@/lib/houseState';
+import { tourReduce, FRAMING_SECONDS, type TourEvent, type TourState } from '@/lib/tourMachine';
 
+export type { TourPhase, TourState } from '@/lib/tourMachine';
 export interface TourStop { title: string; room: string | null; size?: string; text: string; path: [number, number][]; look: [number, number, number] }
 interface TourData { speed: number; wait: number; start: { x: number; z: number; yaw: number }; stops: TourStop[] }
 export const tour = tourJson as unknown as TourData;
-
-export type TourPhase = 'walking' | 'framing' | 'caption' | 'done';
-export interface TourState { active: boolean; index: number; phase: TourPhase; paused: boolean }
 
 /** "3.54x3.78" -> "3.54 × 3.78 m" */
 export function formatDims(dims?: string) {
@@ -26,20 +26,49 @@ export function stopSize(world: World, s: TourStop) {
   return formatDims(r?.dims);
 }
 
-/** Walks the character from stop to stop (src/data/tour.json), frames each room and shows its caption. */
-export function useTour(world: World) {
-  const [st, setSt] = useState<TourState>({ active: false, index: 0, phase: 'walking', paused: false });
-  const ref = useRef(st); ref.current = st;
+/** Put the character at stop `i`'s spot, facing what it shows (no walking): a walk that can't get through, a late joiner. */
+export function hopToStop(world: World, i: number) {
+  const stop = tour.stops[i];
+  if (!stop) return;
+  const [x, z] = stop.path[stop.path.length - 1];
+  const lv = stop.room ? world.cfg.floors[world.cfg.rooms.find((r) => r.id === stop.room)?.floor ?? 0].y : levelOf(world, player.feet);
+  teleport(x, z, groundHeight(world, x, z, lv + 0.1), Math.atan2(-(stop.look[0] - x), -(stop.look[2] - z)));
+}
+
+/** Within this distance (m) of a stop's spot, there is no need to walk there. */
+const AT_STOP = 1.2;
+
+/** Send a tour event to the shared store (see lib/tourMachine.ts). */
+export const tourDispatch = (e: TourEvent) => house.set({ tour: tourReduce(house.get().tour, e, tour.stops.length) });
+
+/**
+ * Walks the character from stop to stop (src/data/tour.json), frames each room and shows its caption.
+ * The state lives in the shared store; this hook turns its changes into walking and camera moves.
+ * With `clock: false` it never advances the tour on its own (arrived -> framing -> caption -> next stop):
+ * whoever owns the clock sends those events instead (a group tour's host: lib/groupTour.ts).
+ * When the clock comes back mid-tour (this visitor just became the host), it carries on from where things are.
+ */
+export function useTour(world: World, { clock = true }: { clock?: boolean } = {}) {
+  const st = useHouse((s) => s.tour);
+  const prev = useRef<TourState>(st);
   const timer = useRef<number | null>(null);
   const myAuto = useRef<typeof player.auto>(null);
   const resumeAt = useRef(0);
+  const clockRef = useRef(clock); clockRef.current = clock;
+  const prevClock = useRef(clock);
 
   const clear = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
+  const schedule = (fn: () => void, s: number) => { clear(); timer.current = window.setTimeout(fn, s * 1000); };
 
-  const walk = useCallback((i: number, from = 0) => {
+  const walk = (i: number, from: number) => {
     const stop = tour.stops[i];
     if (!stop) return;
     player.lookAt = null;
+    const end = stop.path[stop.path.length - 1];
+    if (Math.hypot(end[0] - player.x, end[1] - player.z) < AT_STOP) { // already there (hopped in, resumed at the stop)
+      if (clockRef.current) tourDispatch({ type: 'arrived', index: i });
+      return;
+    }
     let path = stop.path.slice(from);
     // after a manual detour, find the way back to the next waypoint on this floor first
     const first = path[0];
@@ -50,82 +79,69 @@ export function useTour(world: World) {
     const a: NonNullable<typeof player.auto> = {
       path, i: 0, speed: tour.speed, stuck: 0,
       onDone: (ok) => {
-        if (ref.current.paused || !ref.current.active || myAuto.current !== a) return;
-        resumeAt.current = 0;
-        if (!ok) {
-          // could not get through: hop to the stop so the tour keeps going
-          const [x, z] = stop.path[stop.path.length - 1];
-          const lv = stop.room ? world.cfg.floors[world.cfg.rooms.find((r) => r.id === stop.room)?.floor ?? 0].y : levelOf(world, player.feet);
-          teleport(x, z, groundHeight(world, x, z, lv + 0.1));
-        }
-        arrive(i);
+        if (myAuto.current !== a) return;
+        myAuto.current = null;
+        const s = house.get().tour;
+        if (s.paused) resumeAt.current = a.i; // stopped by the pause (or by the input that caused it): walk on from here
+        if (!s.active || s.paused || s.index !== i) return;
+        if (!ok) hopToStop(world, i); // could not get through: hop to the stop so the tour keeps going
+        if (clockRef.current) tourDispatch({ type: 'arrived', index: i });
       },
     };
     myAuto.current = a;
     player.auto = a;
-    setSt((s) => ({ ...s, index: i, phase: 'walking' }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [world]);
-
-  const schedule = (fn: () => void, s: number) => { clear(); timer.current = window.setTimeout(fn, s * 1000); };
-
-  const next = useCallback(() => {
-    clear();
-    const i = ref.current.index + 1;
-    if (i >= tour.stops.length) { player.lookAt = null; setSt((s) => ({ ...s, phase: 'done', paused: false })); return; }
-    setSt((s) => ({ ...s, paused: false }));
-    ref.current = { ...ref.current, paused: false };
-    walk(i);
-  }, [walk]);
-
-  const showCaption = useCallback(() => {
-    setSt((s) => ({ ...s, phase: 'caption' }));
-    if (!ref.current.paused) schedule(() => next(), tour.wait);
-  }, [next]);
-
-  const arrive = (i: number) => {
-    player.lookAt = tour.stops[i].look;
-    setSt((s) => ({ ...s, index: i, phase: 'framing' }));
-    schedule(() => showCaption(), 1.1);
   };
 
-  const start = useCallback(() => {
+  // every state change -> the matching side effects
+  useEffect(() => {
+    const was = prev.current;
+    const tookClock = clock && !prevClock.current;
+    prev.current = st;
+    prevClock.current = clock;
     clear();
-    const { x, z, yaw } = tour.start;
-    teleport(x, z, groundHeight(world, x, z, 0.6), yaw);
-    ref.current = { active: true, index: 0, phase: 'walking', paused: false };
-    setSt(ref.current);
-    walk(0);
-  }, [walk, world]);
-
-  const pause = useCallback(() => {
-    const s = ref.current;
-    if (!s.active || s.paused || s.phase === 'done') return;
-    clear();
-    ref.current = { ...s, paused: true };
-    setSt(ref.current);
-    if (s.phase === 'walking' && player.auto && player.auto === myAuto.current) { resumeAt.current = player.auto.i; stopAuto(); }
-    player.lookAt = null;
-  }, []);
-
-  const resume = useCallback(() => {
-    const s = ref.current;
-    if (!s.active || !s.paused) return;
-    ref.current = { ...s, paused: false };
-    setSt(ref.current);
-    if (s.phase === 'walking') walk(s.index, resumeAt.current);
-    else if (s.phase === 'caption' || s.phase === 'framing') { player.lookAt = tour.stops[s.index].look; showCaption(); }
-  }, [walk, showCaption]);
-
-  const exit = useCallback(() => {
-    clear();
-    if (player.auto === myAuto.current) { myAuto.current = null; stopAuto(); }
-    player.lookAt = null;
-    ref.current = { active: false, index: 0, phase: 'walking', paused: false };
-    setSt(ref.current);
-  }, []);
+    const mine = () => !!player.auto && player.auto === myAuto.current;
+    if (!st.active || st.phase === 'done') {
+      if (mine()) stopAuto();
+      if (was !== st) player.lookAt = null;
+      return;
+    }
+    if (st.paused) {
+      if (mine()) stopAuto(); // onDone notes where to walk on from
+      player.lookAt = null;
+      return;
+    }
+    const stop = tour.stops[st.index];
+    if (st.phase === 'walking') {
+      if (st.leg === was.leg) {
+        // just took over the clock, already standing at the stop (a follower's walk doesn't report arriving)
+        if (tookClock && !mine()) tourDispatch({ type: 'arrived', index: st.index });
+        return;
+      }
+      const resuming = was.active && was.paused && was.index === st.index;
+      if (mine()) { myAuto.current = null; stopAuto(); }
+      walk(st.index, resuming ? resumeAt.current : 0);
+      resumeAt.current = 0;
+      return;
+    }
+    player.lookAt = stop.look;
+    if (!clockRef.current) return;
+    if (st.phase === 'framing') schedule(() => tourDispatch({ type: 'framed', index: st.index }), FRAMING_SECONDS);
+    else schedule(() => tourDispatch({ type: 'next' }), tour.wait);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st, clock]);
 
   useEffect(() => () => clear(), []);
 
-  return { state: st, stop: tour.stops[st.index], count: tour.stops.length, start, pause, resume, next, exit };
+  const toStart = useCallback(() => {
+    const { x, z, yaw } = tour.start;
+    teleport(x, z, groundHeight(world, x, z, 0.6), yaw);
+  }, [world]);
+  const start = useCallback(() => { toStart(); tourDispatch({ type: 'start' }); }, [toStart]);
+  const hop = useCallback((i: number) => hopToStop(world, i), [world]);
+  const pause = useCallback(() => tourDispatch({ type: 'pause' }), []);
+  const resume = useCallback(() => tourDispatch({ type: 'resume' }), []);
+  const next = useCallback(() => tourDispatch({ type: 'next' }), []);
+  const exit = useCallback(() => tourDispatch({ type: 'exit' }), []);
+
+  return { state: st, stop: tour.stops[st.index], count: tour.stops.length, start, pause, resume, next, exit, hop, toStart };
 }

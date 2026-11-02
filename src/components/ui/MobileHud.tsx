@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { World } from '@/lib/world';
 import type { Room, StyleDef } from '@/lib/types';
 import { DesignCards } from './Design';
+import { RoomCode } from './Online';
+import { PUBLIC_ROOM } from '@/lib/multiplayer';
 import { player } from '@/lib/player';
 import type { Quality } from '../Scene';
 import type { ViewMode } from '../Player';
@@ -130,7 +132,9 @@ function Sheet(props: {
   world: World; view: ViewMode; night: boolean; quality: Quality; settings: MobileSettings; fs: boolean; fsAvailable: boolean;
   onClose: () => void; onRoom: (r: Room) => void; onOutside: () => void; onView: () => void; onNight: () => void; onQuality: (q: Quality) => void;
   onSetting: (k: keyof MobileSettings) => void; onFullscreen: () => void; onRestartTour: () => void; onIntro: () => void;
-  styles: StyleDef[]; styleId: string; thumbs: Record<string, string>; onStyle: (id: string) => void;
+  styles: StyleDef[]; styleId: string; thumbs: Record<string, string>; onStyle: (id: string) => void; roomCode: string;
+  /** The tour entry: "Guided tour · Restart", or a group tour's (null: none, while following one). */
+  tourAction: { label: string; value: string } | null;
 }) {
   const { world } = props;
   const [drag, setDrag] = useState(0);
@@ -148,6 +152,12 @@ function Sheet(props: {
           <button className="icon-btn" onClick={props.onClose} aria-label="Close the menu"><IconClose /></button>
         </div>
         <div className="sheet-body">
+          {props.roomCode !== PUBLIC_ROOM && (
+            <>
+              <h2>Private room</h2>
+              <RoomCode room={props.roomCode} sheet />
+            </>
+          )}
           <h2>🏠 Design</h2>
           <DesignCards styles={props.styles} active={props.styleId} thumbs={props.thumbs} onPick={props.onStyle} variant="row" />
           <h2>Go to room</h2>
@@ -182,7 +192,7 @@ function Sheet(props: {
             <Toggle icon={<IconBob />} label="Head bob" value={props.settings.headBob ? 'On' : 'Off'} on={props.settings.headBob} onClick={() => props.onSetting('headBob')} />
             <Toggle icon={<IconSound on={props.settings.sound} />} label="Sound" value={props.settings.sound ? 'On' : 'Off'} on={props.settings.sound} onClick={() => props.onSetting('sound')} />
             {props.fsAvailable && <Toggle icon={<IconFullscreen on={props.fs} />} label="Fullscreen" value={props.fs ? 'On' : 'Off'} on={props.fs} onClick={props.onFullscreen} />}
-            <Toggle icon={<IconRestart />} label="Guided tour" value="Restart" onClick={props.onRestartTour} />
+            {props.tourAction && <Toggle icon={<IconRestart />} label={props.tourAction.label} value={props.tourAction.value} onClick={props.onRestartTour} />}
             <Toggle icon={<IconHome />} label="Back to intro" value="Exit" onClick={props.onIntro} />
           </div>
         </div>
@@ -207,7 +217,9 @@ export default function MobileHud(props: {
   setMenu: (o: boolean) => void; setMap: (o: boolean) => void;
   onRoom: (r: Room) => void; onOutside: () => void; onView: () => void; onNight: () => void; onQuality: (q: Quality) => void;
   onSetting: (k: keyof MobileSettings) => void; onFullscreen: () => void; onRestartTour: () => void; onIntro: () => void;
-  styles: StyleDef[]; styleId: string; thumbs: Record<string, string>; onStyle: (id: string) => void;
+  styles: StyleDef[]; styleId: string; thumbs: Record<string, string>; onStyle: (id: string) => void; roomCode: string;
+  /** The tour entry: "Guided tour · Restart", or a group tour's (null: none, while following one). */
+  tourAction: { label: string; value: string } | null;
 }) {
   const { world } = props;
   return (

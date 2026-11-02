@@ -27,6 +27,7 @@ export const IconSound = ({ on }: { on: boolean }) => (
 export const IconWalk = () => <S><circle cx="13" cy="4.5" r="2" /><path d="M10 21l2-6 3 3v3M9 11l3-3 3 3 3 1M12 15l-1-4" /></S>;
 export const IconRestart = () => <S><path d="M4 12a8 8 0 1 0 3-6.2M4 4v4h4" /></S>;
 export const IconHome = () => <S><path d="M3 11l9-7 9 7v9H3z" /><path d="M10 20v-6h4v6" /></S>;
+export const IconSmile = () => <S><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0M9 9.5h.01M15 9.5h.01" /></S>;
 export const IconMap = () => <S><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z" /><path d="M9 4v14M15 6v14" /></S>;
 export const IconBob = () => <S><path d="M3 12c3-5 6 5 9 0s6 5 9 0" /></S>;
 

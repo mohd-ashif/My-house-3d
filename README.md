@@ -15,6 +15,7 @@ WASD / arrows: walk · Shift: run · Click: mouse-look (Esc to release) · C: fi
 N: day/night · "Go to room…" menu: teleport (or "Outside" back to the gate) · Exit: back to the intro
 Phones: left joystick + drag on the right side (a one-time tip explains this).
 V or "🏠 Design": switch the exterior design (see below).
+1–5: emote (wave, clap, point, sit, dance) · 6–0: react (❤️ 👍 😂 😮 🔥) · phones: the 🙂 button, bottom right.
 
 ## Multiplayer (see who else is inside)
 Everyone who enters types a name on the intro screen; inside, all visitors see each other walking around live,
@@ -28,6 +29,33 @@ The browser connects to `ws://<same host>:3001` by default. When the site is ser
 runs on another host, set `NEXT_PUBLIC_MP_URL` (e.g. `wss://mp.example.com`) at build time. The relay needs a
 host that keeps a process running (a VPS, Render, Railway, Fly.io); Vercel can host the site but not the relay.
 If the relay can't be reached the walkthrough still works on its own, and the panel says "Offline · retrying".
+
+**Follow.** Tap a name in the "here now" panel and pick Follow: you walk ~1.5 m behind them (up and down the
+stairs too), and jump into the same room when they teleport. Any movement of your own, or the Stop button on the
+"Following …" pill, ends it. Logic in `src/lib/follow.ts`.
+
+**Emotes and reactions.** Emotes are procedural poses blended over the walk cycle; wave, clap and point play
+once, while sit and dance last until you walk off (or press the same one again). They start only while you stand still.
+Reactions float up over your head for 2 s. Everyone in the room sees both; the relay checks the names and allows
+one emote and one reaction per player per second, and late joiners see anyone already sitting or dancing.
+State and poses in `src/lib/emotes.ts`.
+
+**Group tour (private rooms).** Whoever creates a room is its host (👑 in the "here now" list). The host can pass
+the role on (tap a name → Make host); if the host leaves, whoever has been in the room longest takes over. The host
+starts the 13-stop tour for everyone with "Start group tour" (on the intro, it creates the room as well; inside,
+in the top bar or the ☰ menu). Everyone's character then walks the tour with the host, under the same caption card
+("Stop 4 of 13 · guided by Ashif"). Only the host has Next / Pause / Play / Close, and the relay ignores tour
+updates from anyone else. A follower who taps "Leave group" (or just walks off) explores alone; "Rejoin group"
+teleports them to the current stop. People who arrive mid-tour start at the current stop. The host runs the
+tour's clock; followers' tours have none of their own (`useTour` with `clock: false`), so they never drift apart.
+If the host drops out, the next host carries on from the same stop. In the public room, or with no relay, the guided
+tour is solo, as before. Logic in `src/lib/groupTour.ts`.
+
+**Private rooms.** "Enter the house" joins the shared `public` room. "Create room" makes a 6-character code
+(like `ASH42K`) and puts it in the URL as `?room=ASH42K`; anyone opening that link gets the code filled in and
+presses "Join room". The code, with a copy/share button, sits in the top bar (desktop) or the ☰ menu (phones).
+Up to 60 people per room; a room is forgotten after 5 minutes empty. Message names and shapes for both the
+relay and the browser live in `src/lib/protocol.mjs`; deploy the relay and the site together when they change.
 
 ## Exterior designs
 The same plan can be dressed in five elevations: **Modern Tropical** (`modern-tropical`), **Contemporary Gable**
